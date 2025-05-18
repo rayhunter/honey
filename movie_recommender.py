@@ -1,5 +1,5 @@
 import streamlit as st
-import openai
+from openai import OpenAI
 import os
 from typing import List
 
@@ -68,16 +68,21 @@ def setup_app():
 
 # Initialize OpenAI client
 def init_openai():
-    openai.api_key = os.getenv("OPENAI_API_KEY")
-    if not openai.api_key:
-        openai.api_key = st.secrets.get("OPENAI_API_KEY", "")
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        api_key = st.secrets.get("OPENAI_API_KEY", "")
+    
+    return OpenAI(api_key=api_key)
 
 # Analyze movie preferences and get recommendations
 def get_movie_recommendations(partner1_movies: List[str], partner2_movies: List[str]) -> List[str]:
     if not partner1_movies or not partner2_movies:
         return []
     
-    prompt = f"""
+    client = init_openai()
+    
+    system_message = "You are a knowledgeable film critic who can identify cinematic commonalities between different movie preferences."
+    user_message = f"""
     Analyze these two lists of favorite movies from partners in a relationship and identify 5 new movie recommendations 
     that would appeal to both based on common themes, genres, directors, or styles. 
     Return only the movie titles in a numbered list, nothing else.
@@ -90,11 +95,11 @@ def get_movie_recommendations(partner1_movies: List[str], partner2_movies: List[
     """
     
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are a knowledgeable film critic who can identify cinematic commonalities between different movie preferences."},
-                {"role": "user", "content": prompt}
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": user_message}
             ],
             temperature=0.7,
             max_tokens=200
@@ -109,7 +114,6 @@ def get_movie_recommendations(partner1_movies: List[str], partner2_movies: List[
 # Main app function
 def main():
     setup_app()
-    init_openai()
     
     st.markdown('<h1 class="title">Honey, I Love You But I Can\'t Watch That</h1>', unsafe_allow_html=True)
     st.markdown('<h2 class="subheader">Movie Recommendations for Couples</h2>', unsafe_allow_html=True)
