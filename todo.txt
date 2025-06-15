@@ -1,0 +1,3 @@
+have results readout at the top of the page.
+place really interesting images in the blocks above the CTA
+have a way to print results/message out results to phone numbers
