@@ -1,0 +1,361 @@
+/* Tailwind + Glassmorphism Inspired Styling for Streamlit */
+
+/* Import Font Awesome */
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
+
+/* Tailwind-inspired color palette */
+:root {
+  --tw-blue-500: #3b82f6;
+  --tw-green-400: #4ade80;
+  --tw-orange-400: #f59e0b;
+  --tw-pink-500: #ec4899;
+  --tw-purple-500: #8b5cf6;
+  --tw-cyan-400: #06b6d4;
+  --tw-emerald-500: #10b981;
+  --tw-orange-500: #f97316;
+  --tw-lime-400: #84cc16;
+  --tw-fuchsia-500: #d946ef;
+  
+  --glass-bg: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --text-glow: 0 0 10px rgba(255, 255, 255, 0.8);
+}
+
+/* Dynamic gradient background animation */
+@keyframes gradientBackground {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Floating animation for decorative elements */
+@keyframes float {
+  0% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(5deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
+}
+
+/* Streamlit app base styling */
+.stApp {
+  background: linear-gradient(-45deg, var(--tw-blue-500), var(--tw-green-400), var(--tw-orange-400), var(--tw-pink-500)) !important;
+  background-size: 400% 400% !important;
+  animation: gradientBackground 15s ease infinite !important;
+  color: white !important;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  min-height: 100vh !important;
+}
+
+/* Floating decorative icons */
+.stApp::before {
+  content: '\f179'; /* Font Awesome apple icon */
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  position: fixed;
+  top: 4rem;
+  left: 4rem;
+  font-size: 4rem;
+  opacity: 0.2;
+  color: white;
+  animation: float 6s ease-in-out infinite;
+  z-index: 1;
+}
+
+.stApp::after {
+  content: '\f094'; /* Font Awesome lemon icon */
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  position: fixed;
+  top: 25%;
+  right: 5rem;
+  font-size: 3rem;
+  opacity: 0.25;
+  color: white;
+  animation: float 6s ease-in-out infinite;
+  animation-delay: 0.5s;
+  z-index: 1;
+}
+
+/* Header styling */
+.stApp > div:first-child {
+  background: transparent !important;
+}
+
+/* Main content area */
+.main .block-container {
+  max-width: 1200px !important;
+  padding: 2rem 1rem !important;
+}
+
+/* Title styling with glow effect */
+.title {
+  color: white !important;
+  text-align: center !important;
+  font-size: 3rem !important;
+  font-weight: 700 !important;
+  text-shadow: var(--text-glow) !important;
+  margin-bottom: 1rem !important;
+}
+
+/* Subheader styling */
+.subheader {
+  color: rgba(255, 255, 255, 0.9) !important;
+  text-align: center !important;
+  font-size: 1.25rem !important;
+  font-weight: 400 !important;
+  margin-bottom: 2rem !important;
+}
+
+/* Glassmorphism content cards */
+.content-card {
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(10px) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 1rem !important;
+  padding: 1.5rem !important;
+  margin-bottom: 1.5rem !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
+}
+
+.content-card p {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-size: 1.1rem !important;
+  line-height: 1.6 !important;
+  margin: 0 !important;
+}
+
+/* Column cards with glassmorphism */
+.column-card {
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(10px) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 1rem !important;
+  padding: 1.5rem !important;
+  margin-bottom: 1rem !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
+  transition: all 0.3s ease !important;
+}
+
+.column-card:hover {
+  transform: translateY(-5px) !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Subheader in columns */
+.stApp h2, .stApp h3 {
+  color: white !important;
+  font-weight: 600 !important;
+  margin-bottom: 1rem !important;
+  text-shadow: var(--text-glow) !important;
+}
+
+/* Input styling with glassmorphism */
+.stTextInput > div > div > input {
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(10px) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 0.5rem !important;
+  color: white !important;
+  padding: 0.75rem 1rem !important;
+  font-size: 1rem !important;
+  transition: all 0.3s ease !important;
+}
+
+.stTextInput > div > div > input::placeholder {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.stTextInput > div > div > input:focus {
+  border-color: var(--tw-green-400) !important;
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.3) !important;
+  outline: none !important;
+}
+
+/* Button styling with gradient */
+.stButton > button {
+  background: linear-gradient(to right, var(--tw-green-400), var(--tw-cyan-400)) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 0.5rem !important;
+  padding: 0.75rem 1.5rem !important;
+  font-size: 1.1rem !important;
+  font-weight: 600 !important;
+  transition: all 0.3s ease !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+}
+
+.stButton > button:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+  opacity: 0.9 !important;
+}
+
+.stButton > button:active {
+  transform: translateY(0) !important;
+}
+
+/* Centered button container */
+.button-container {
+  display: flex !important;
+  justify-content: center !important;
+  margin: 2rem 0 !important;
+}
+
+/* Analysis container with enhanced glassmorphism */
+.analysis-container {
+  background: linear-gradient(145deg, rgba(26, 26, 26, 0.7), rgba(45, 45, 45, 0.7)) !important;
+  backdrop-filter: blur(15px) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 1rem !important;
+  padding: 2rem !important;
+  margin: 2rem 0 !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+}
+
+.analysis-title {
+  color: white !important;
+  font-size: 1.5rem !important;
+  font-weight: 600 !important;
+  margin-bottom: 1.5rem !important;
+  text-align: center !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.1em !important;
+  text-shadow: var(--text-glow) !important;
+}
+
+/* Table styling with glassmorphism */
+.analysis-table {
+  width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 0.5rem !important;
+}
+
+.analysis-table th {
+  background: rgba(51, 51, 51, 0.8) !important;
+  color: white !important;
+  padding: 0.75rem !important;
+  text-align: left !important;
+  font-weight: 600 !important;
+  border-radius: 0.5rem !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+.analysis-table td {
+  background: rgba(42, 42, 42, 0.8) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  padding: 0.75rem !important;
+  border-radius: 0.5rem !important;
+  backdrop-filter: blur(10px) !important;
+  transition: all 0.3s ease !important;
+}
+
+.analysis-table tr:hover td {
+  background: rgba(51, 51, 51, 0.9) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* Recommendation cards with hover effects */
+.recommendation {
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(15px) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 1rem !important;
+  padding: 1.5rem !important;
+  margin-bottom: 1rem !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
+  transition: all 0.3s ease !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.recommendation::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 4px !important;
+  background: linear-gradient(to right, var(--tw-green-400), var(--tw-cyan-400)) !important;
+}
+
+.recommendation:hover {
+  transform: translateY(-5px) !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2) !important;
+}
+
+.recommendation h3 {
+  color: white !important;
+  font-size: 1.25rem !important;
+  font-weight: 600 !important;
+  margin: 0 !important;
+  text-shadow: var(--text-glow) !important;
+}
+
+/* Spinner styling */
+.stSpinner > div {
+  border-top-color: var(--tw-green-400) !important;
+  border-right-color: var(--tw-green-400) !important;
+  border-bottom-color: var(--tw-green-400) !important;
+  border-left-color: transparent !important;
+}
+
+/* Alert styling with glassmorphism */
+.stAlert {
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(10px) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 0.5rem !important;
+  color: white !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Warning alert */
+.stWarning {
+  border-left: 4px solid var(--tw-orange-400) !important;
+}
+
+/* Error alert */
+.stError {
+  border-left: 4px solid var(--tw-pink-500) !important;
+}
+
+/* Success alert */
+.stSuccess {
+  border-left: 4px solid var(--tw-green-400) !important;
+}
+
+/* Info alert */
+.stInfo {
+  border-left: 4px solid var(--tw-blue-500) !important;
+}
+
+/* Column layout adjustments */
+.stColumns {
+  gap: 1.5rem !important;
+}
+
+/* Hide Streamlit branding */
+.stApp > footer {
+  visibility: hidden !important;
+}
+
+.stApp > header {
+  visibility: hidden !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .title {
+    font-size: 2rem !important;
+  }
+  
+  .stApp::before,
+  .stApp::after {
+    display: none !important;
+  }
+  
+  .main .block-container {
+    padding: 1rem 0.5rem !important;
+  }
+}

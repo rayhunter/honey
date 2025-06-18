@@ -5,52 +5,8 @@ from typing import List, Dict
 
 # Load CSS
 def load_css():
-    with open("style/aceternity_ui.css", "r") as f:
+    with open("style/tailwind_glassmorphism.css", "r") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-    
-    # Add custom CSS for the analysis section
-    st.markdown("""
-    <style>
-    .analysis-container {
-        background: linear-gradient(145deg, #1a1a1a, #2d2d2d);
-        border-radius: 15px;
-        padding: 20px;
-        margin: 20px 0;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    }
-    .analysis-title {
-        color: #ffffff;
-        font-size: 24px;
-        font-weight: 600;
-        margin-bottom: 20px;
-        text-align: center;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-    .analysis-table {
-        width: 100%;
-        border-collapse: separate;
-        border-spacing: 0 10px;
-    }
-    .analysis-table th {
-        background-color: #333333;
-        color: #ffffff;
-        padding: 12px;
-        text-align: left;
-        font-weight: 600;
-        border-radius: 8px;
-    }
-    .analysis-table td {
-        background-color: #2a2a2a;
-        color: #e0e0e0;
-        padding: 12px;
-        border-radius: 8px;
-    }
-    .analysis-table tr:hover td {
-        background-color: #333333;
-    }
-    </style>
-    """, unsafe_allow_html=True)
 
 # Set up the app with Aceternity UI styling
 def setup_app():
@@ -167,7 +123,7 @@ def main():
     
     with col1:
         st.markdown('<div class="column-card">', unsafe_allow_html=True)
-        st.subheader("Movie Lover 1 Favorite Movies")
+        st.subheader("🎭 Movie Lover 1's Favorites")
         partner1_movies = [
             st.text_input(f"Movie {i+1}", key=f"p1_{i}", placeholder="Enter a movie title").strip()
             for i in range(5)
@@ -176,7 +132,7 @@ def main():
     
     with col2:
         st.markdown('<div class="column-card">', unsafe_allow_html=True)
-        st.subheader("Movie Lover 2 Favorite Movies")
+        st.subheader("🎬 Movie Lover 2's Favorites")
         partner2_movies = [
             st.text_input(f"Movie {i+1}", key=f"p2_{i}", placeholder="Enter a movie title").strip()
             for i in range(5)
@@ -184,8 +140,8 @@ def main():
         st.markdown('</div>', unsafe_allow_html=True)
     
     # Submit button
-    st.markdown('<div style="display: flex; justify-content: center; margin-top: 20px;">', unsafe_allow_html=True)
-    find_button = st.button("Find Our Perfect Movies!", type="primary")
+    st.markdown('<div class="button-container">', unsafe_allow_html=True)
+    find_button = st.button("🎬 Find Our Perfect Movies!", type="primary")
     st.markdown('</div>', unsafe_allow_html=True)
     
     if find_button:
@@ -214,7 +170,7 @@ def main():
                 st.markdown(analysis_data.to_html(classes='analysis-table', index=False), unsafe_allow_html=True)
                 
                 # Get and display recommendations
-                st.markdown("### Your Perfect Movie Matches")
+                st.markdown("### 🍿 Your Perfect Movie Matches")
                 recommendations = get_movie_recommendations(partner1_filtered, partner2_filtered)
             
             if recommendations:
