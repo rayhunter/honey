@@ -1,7 +1,9 @@
 import streamlit as st
 from openai import OpenAI
 import os
-from typing import List, Dict
+import requests
+import json
+from typing import List, Dict, Optional
 
 # Load CSS
 def load_css():
@@ -24,6 +26,95 @@ def init_openai():
         api_key = st.secrets.get("OPENAI_API_KEY", "")
     
     return OpenAI(api_key=api_key)
+
+# MCP client for OMDB server communication
+class OMDBMCPClient:
+    def __init__(self, mcp_server_url: str = "http://localhost:8081"):
+        self.mcp_server_url = mcp_server_url
+        self.session = requests.Session()
+        self.session.headers.update({'Content-Type': 'application/json'})
+    
+    def _make_mcp_request(self, method: str, params: dict = None) -> Optional[dict]:
+        """Make a JSON-RPC request to the MCP server"""
+        request_data = {
+            "jsonrpc": "2.0",
+            "id": "1",
+            "method": method,
+            "params": params or {}
+        }
+        
+        try:
+            response = self.session.post(
+                f"{self.mcp_server_url}/mcp",
+                json=request_data,
+                timeout=30
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            st.warning(f"OMDB MCP server not available: {e}")
+            return None
+    
+    def get_movie_details(self, title: str, year: Optional[str] = None) -> Optional[dict]:
+        """Get detailed movie information from OMDB via MCP"""
+        params = {
+            "name": "get_movie_details",
+            "arguments": {
+                "title": title,
+                "plot": "full"
+            }
+        }
+        
+        if year:
+            params["arguments"]["year"] = year
+        
+        response = self._make_mcp_request("tools/call", params)
+        if response and "result" in response:
+            return self._parse_movie_details(response["result"])
+        return None
+    
+    def _parse_movie_details(self, mcp_result: dict) -> dict:
+        """Parse MCP response to extract movie details"""
+        if "content" in mcp_result and mcp_result["content"]:
+            content_text = mcp_result["content"][0].get("text", "")
+            
+            # Extract key information from the formatted text response
+            details = {
+                "title": "",
+                "year": "",
+                "plot": "",
+                "actors": "",
+                "runtime": "",
+                "genre": "",
+                "director": "",
+                "imdb_rating": ""
+            }
+            
+            lines = content_text.split('\n')
+            for line in lines:
+                line = line.strip()
+                if line.startswith('🎬'):
+                    # Extract title and year from header like "🎬 The Matrix (1999)"
+                    title_year = line.replace('🎬', '').strip()
+                    if '(' in title_year and title_year.endswith(')'):
+                        details["title"] = title_year.split('(')[0].strip()
+                        details["year"] = title_year.split('(')[1].replace(')', '').strip()
+                elif line.startswith('Runtime:'):
+                    details["runtime"] = line.replace('Runtime:', '').strip()
+                elif line.startswith('Genre:'):
+                    details["genre"] = line.replace('Genre:', '').strip()
+                elif line.startswith('Director:'):
+                    details["director"] = line.replace('Director:', '').strip()
+                elif line.startswith('Cast:'):
+                    details["actors"] = line.replace('Cast:', '').strip()
+                elif line.startswith('IMDB Rating:'):
+                    details["imdb_rating"] = line.replace('IMDB Rating:', '').strip()
+                elif line.startswith('Plot:'):
+                    details["plot"] = line.replace('Plot:', '').strip()
+            
+            return details
+        
+        return None
 
 # Analyze movie preferences and get recommendations
 def get_movie_recommendations(partner1_movies: List[str], partner2_movies: List[str]) -> List[str]:
@@ -174,12 +265,33 @@ def main():
                 recommendations = get_movie_recommendations(partner1_filtered, partner2_filtered)
             
             if recommendations:
+                # Initialize OMDB MCP client
+                omdb_client = OMDBMCPClient()
+                
                 for i, movie in enumerate(recommendations, 1):
-                    st.markdown(f"""
-                    <div class="recommendation">
-                        <h3>{i}. {movie}</h3>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    # Try to get enhanced details from OMDB
+                    movie_details = omdb_client.get_movie_details(movie)
+                    
+                    if movie_details:
+                        # Display enhanced recommendation with details
+                        st.markdown(f"""
+                        <div class="recommendation">
+                            <h3>{i}. {movie_details.get('title', movie)} ({movie_details.get('year', '')})</h3>
+                            <p><strong>Synopsis:</strong> {movie_details.get('plot', 'Plot not available')}</p>
+                            <p><strong>Cast:</strong> {movie_details.get('actors', 'Cast not available')}</p>
+                            <p><strong>Runtime:</strong> {movie_details.get('runtime', 'Runtime not available')}</p>
+                            <p><strong>Genre:</strong> {movie_details.get('genre', 'Genre not available')}</p>
+                            <p><strong>IMDB Rating:</strong> {movie_details.get('imdb_rating', 'Rating not available')}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        # Fallback to basic display if OMDB details unavailable
+                        st.markdown(f"""
+                        <div class="recommendation">
+                            <h3>{i}. {movie}</h3>
+                            <p><em>Additional details unavailable - OMDB MCP server may not be running</em></p>
+                        </div>
+                        """, unsafe_allow_html=True)
             else:
                 st.error("Couldn't generate recommendations. Please try again with different movies.")
 

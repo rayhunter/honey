@@ -1,0 +1,41 @@
+# Docker ignore file for OMDB MCP Server
+
+# Build artifacts
+target/
+*.jar
+*.war
+*.ear
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+docs/
+
+# CI/CD
+.github/
+
+# Local environment
+.env
+.env.local
+
+# Logs
+*.log
+logs/
+
+# Test results
+**/target/surefire-reports/
+**/target/failsafe-reports/

@@ -150,7 +150,7 @@
 
 /* Input styling with glassmorphism */
 .stTextInput > div > div > input {
-  background: var(--glass-bg) !important;
+  background: rgba(0, 0, 0, 0.5) !important;
   backdrop-filter: blur(10px) !important;
   border: 1px solid var(--glass-border) !important;
   border-radius: 0.5rem !important;

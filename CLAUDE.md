@@ -59,5 +59,5 @@ streamlit run movie_recommender.py
 - Responsive two-column layout for partner inputs
 
 ## File Structure Notes
-- `index.html`: Appears to be unrelated NutriPro nutrition portal (likely leftover from another project)
+- `index.html`: Honey, I Love You But I Cant Watch That
 - `todo.txt`: Contains feature requests for results display and messaging functionality

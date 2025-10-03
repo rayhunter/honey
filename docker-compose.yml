@@ -1,0 +1,24 @@
+services:
+  omdb-mcp-server:
+    build:
+      context: ./omdb-mcp-server
+      dockerfile: Dockerfile
+    container_name: omdb-mcp-server
+    ports:
+      - "8081:8081"
+    environment:
+      - OMDB_API_KEY=${OMDB_API_KEY:-your-api-key-here}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - honey-network
+
+networks:
+  honey-network:
+    driver: bridge
+

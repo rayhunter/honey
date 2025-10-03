@@ -32,6 +32,7 @@ venv.bak/
 # Streamlit
 .streamlit/secrets.toml
 .streamlit/config.toml
+.streamlit/
 
 # IDE
 .idea/
@@ -70,7 +71,25 @@ htmlcov/
 .VolumeIcon.icns
 .com.apple.timemachine.donotpresent
 
-# Project specific
+# Environment variables and secrets
 *.env
+.env.*
+!.env.example
 .env.local
 .env.*.local
+.env.production
+.env.staging
+.env.development
+.env.test
+secrets.toml
+.secrets.toml
+*.secrets
+.secrets/
+secrets/
+
+# API Keys and sensitive data
+*api-key*
+*secret*
+*password*
+*token*
+*credential*

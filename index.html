@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -19,13 +19,13 @@
             animation: gradientBackground 15s ease infinite;
         }
         
-        .fruit-card {
+        .movie-card {
             transform-style: preserve-3d;
             transition: all 0.5s ease;
             perspective: 1000px;
         }
         
-        .fruit-card:hover {
+        .movie-card:hover {
             transform: translateY(-10px) rotateX(5deg);
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
         }
@@ -51,35 +51,36 @@
     </style>
 </head>
 <body class="font-sans text-white min-h-screen dynamic-bg flex flex-col">
-    <!-- Floating fruit decoration -->
+    <!-- Floating movie decoration -->
     <div class="fixed top-16 left-16 text-6xl opacity-20 floating">
-        <i class="fas fa-apple-alt"></i>
+        <i class="fas fa-film"></i>
     </div>
     <div class="fixed top-1/4 right-20 text-5xl opacity-25 floating" style="animation-delay: 0.5s;">
-        <i class="fas fa-lemon"></i>
+        <i class="fas fa-video"></i>
     </div>
     <div class="fixed bottom-32 left-1/4 text-7xl opacity-30 floating" style="animation-delay: 1s;">
-        <i class="fas fa-pepper-hot"></i>
+        <i class="fas fa-camera"></i>
     </div>
     <div class="fixed top-1/2 right-1/3 text-6xl opacity-15 floating" style="animation-delay: 1.5s;">
-        <i class="fas fa-stroopwafel"></i>
+        <i class="fas fa-ticket-alt"></i>
     </div>
     <div class="fixed bottom-20 right-32 text-8xl opacity-25 floating" style="animation-delay: 2s;">
-        <i class="fas fa-carrot"></i>
+        <i class="fas fa-theater-masks"></i>
     </div>
 
     <!-- Header -->
     <header class="py-6 px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center">
             <div class="flex items-center space-x-3">
-                <i class="fas fa-leaf text-3xl text-green-300"></i>
+                <i class="fas fa-film text-3xl text-pink-300"></i>
                 <h1 class="text-3xl font-bold text-glow">
-                    <span class="text-green-300">Nutri</span><span class="text-white">Pro</span>
+                    <span class="text-pink-300">Honey</span><span class="text-white">Movies</span>
                 </h1>
             </div>
-            <div>
-                <a href="#" class="text-sm bg-white bg-opacity-10 hover:bg-opacity-20 px-4 py-2 rounded-full transition duration-300">
-                    Learn more <i class="fas fa-arrow-right ml-1"></i>
+            <div class="text-right">
+                <div class="text-xs text-white text-opacity-70 mb-1">Demo: movielovers / honeylove2025</div>
+                <a href="#login-form" class="text-sm bg-white bg-opacity-10 hover:bg-opacity-20 px-4 py-2 rounded-full transition duration-300">
+                    Get Started <i class="fas fa-arrow-down ml-1"></i>
                 </a>
             </div>
         </div>
@@ -88,50 +89,50 @@
     <!-- Main Content -->
     <main class="flex-grow flex items-center justify-center p-4">
         <div class="max-w-6xl w-full grid md:grid-cols-2 gap-8">
-            <!-- Fruit Cards Section -->
+            <!-- Movie Recommendation Cards Section -->
             <div class="grid grid-cols-2 gap-6 self-center">
-                <!-- Fruit 1 -->
-                <div class="fruit-card bg-white bg-opacity-10 rounded-2xl p-6 border border-white border-opacity-20 shadow-xl">
+                <!-- Romantic Comedy -->
+                <div class="movie-card bg-white bg-opacity-10 rounded-2xl p-6 border border-white border-opacity-20 shadow-xl">
                     <div class="text-center">
-                        <i class="fas fa-apple-alt text-5xl mb-4 text-pink-200"></i>
-                        <h3 class="text-xl font-semibold mb-1 text-pink-100">Celestial Ruby</h3>
-                        <p class="text-xs text-white text-opacity-70">Premium Green Apple</p>
+                        <i class="fas fa-heart text-5xl mb-4 text-pink-200"></i>
+                        <h3 class="text-xl font-semibold mb-1 text-pink-100">Romance</h3>
+                        <p class="text-xs text-white text-opacity-70">Heartwarming Stories</p>
                         <div class="mt-3 h-1 bg-white bg-opacity-20 rounded-full">
-                            <div class="h-1 bg-green-300 rounded-full w-3/4"></div>
+                            <div class="h-1 bg-pink-300 rounded-full w-3/4"></div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Fruit 2 -->
-                <div class="fruit-card bg-white bg-opacity-10 rounded-2xl p-6 border border-white border-opacity-20 shadow-xl">
+                <!-- Action/Adventure -->
+                <div class="movie-card bg-white bg-opacity-10 rounded-2xl p-6 border border-white border-opacity-20 shadow-xl">
                     <div class="text-center">
-                        <i class="fas fa-citrus text-5xl mb-4 text-yellow-200"></i>
-                        <h3 class="text-xl font-semibold mb-1 text-yellow-100">Golden Sun</h3>
-                        <p class="text-xs text-white text-opacity-70">Bahia Orange</p>
+                        <i class="fas fa-rocket text-5xl mb-4 text-yellow-200"></i>
+                        <h3 class="text-xl font-semibold mb-1 text-yellow-100">Adventure</h3>
+                        <p class="text-xs text-white text-opacity-70">Thrilling Journeys</p>
                         <div class="mt-3 h-1 bg-white bg-opacity-20 rounded-full">
-                            <div class="h-1 bg-orange-300 rounded-full w-2/3"></div>
+                            <div class="h-1 bg-yellow-300 rounded-full w-2/3"></div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Fruit 3 -->
-                <div class="fruit-card bg-white bg-opacity-10 rounded-2xl p-6 border border-white border-opacity-20 shadow-xl">
+                <!-- Drama -->
+                <div class="movie-card bg-white bg-opacity-10 rounded-2xl p-6 border border-white border-opacity-20 shadow-xl">
                     <div class="text-center">
-                        <i class="fas fa-watermelon text-5xl mb-4 text-red-200"></i>
-                        <h3 class="text-xl font-semibold mb-1 text-red-100">Crimson Heart</h3>
-                        <p class="text-xs text-white text-opacity-70">Seedless Watermelon</p>
+                        <i class="fas fa-theater-masks text-5xl mb-4 text-red-200"></i>
+                        <h3 class="text-xl font-semibold mb-1 text-red-100">Drama</h3>
+                        <p class="text-xs text-white text-opacity-70">Emotional Depth</p>
                         <div class="mt-3 h-1 bg-white bg-opacity-20 rounded-full">
                             <div class="h-1 bg-red-400 rounded-full w-4/5"></div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Fruit 4 -->
-                <div class="fruit-card bg-white bg-opacity-10 rounded-2xl p-6 border border-white border-opacity-20 shadow-xl">
+                <!-- Comedy -->
+                <div class="movie-card bg-white bg-opacity-10 rounded-2xl p-6 border border-white border-opacity-20 shadow-xl">
                     <div class="text-center">
-                        <i class="fas fa-seedling text-5xl mb-4 text-green-200"></i>
-                        <h3 class="text-xl font-semibold mb-1 text-green-100">Tropical Emerald</h3>
-                        <p class="text-xs text-white text-opacity-70">Golden Kiwi</p>
+                        <i class="fas fa-laugh text-5xl mb-4 text-green-200"></i>
+                        <h3 class="text-xl font-semibold mb-1 text-green-100">Comedy</h3>
+                        <p class="text-xs text-white text-opacity-70">Light & Funny</p>
                         <div class="mt-3 h-1 bg-white bg-opacity-20 rounded-full">
                             <div class="h-1 bg-green-500 rounded-full w-1/2"></div>
                         </div>
@@ -140,23 +141,23 @@
             </div>
 
             <!-- Login Form -->
-            <div class="login-form self-center rounded-2xl p-8 border border-white border-opacity-20 shadow-2xl relative overflow-hidden">
+            <div id="login-form" class="login-form self-center rounded-2xl p-8 border border-white border-opacity-20 shadow-2xl relative overflow-hidden">
                 <!-- Decorative elements -->
                 <div class="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-purple-400 opacity-10"></div>
                 <div class="absolute -bottom-16 -left-16 w-32 h-32 rounded-full bg-cyan-400 opacity-10"></div>
                 
                 <div class="relative z-10">
-                    <h2 class="text-3xl font-bold mb-2 text-center">Exclusive Access</h2>
-                    <p class="text-center text-white text-opacity-80 mb-8">Log in to save your favorite shared films</p>
+                    <h2 class="text-3xl font-bold mb-2 text-center">Find Your Perfect Movies</h2>
+                    <p class="text-center text-white text-opacity-80 mb-8">Get personalized movie recommendations for you and your partner</p>
                     
                     <form class="space-y-5">
                         <div>
-                            <label for="email" class="block text-sm font-medium mb-1">Email</label>
+                            <label for="email" class="block text-sm font-medium mb-1">Username</label>
                             <div class="relative">
                                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <i class="fas fa-envelope text-gray-400"></i>
+                                    <i class="fas fa-user text-gray-400"></i>
                                 </div>
-                                <input type="email" id="email" class="w-full pl-10 pr-4 py-3 bg-white bg-opacity-10 border border-white border-opacity-20 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-transparent placeholder-white placeholder-opacity-50" placeholder="seu@email.com">
+                                <input type="text" id="email" class="w-full pl-10 pr-4 py-3 bg-white bg-opacity-10 border border-white border-opacity-20 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-transparent placeholder-white placeholder-opacity-50" placeholder="Enter username">
                             </div>
                         </div>
                         
@@ -166,7 +167,7 @@
                                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                     <i class="fas fa-lock text-gray-400"></i>
                                 </div>
-                                <input type="password" id="password" class="w-full pl-10 pr-4 py-3 bg-white bg-opacity-10 border border-white border-opacity-20 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-transparent placeholder-white placeholder-opacity-50" placeholder="********">
+                                <input type="password" id="password" class="w-full pl-10 pr-4 py-3 bg-white bg-opacity-10 border border-white border-opacity-20 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-transparent placeholder-white placeholder-opacity-50" placeholder="Enter password">
                             </div>
                         </div>
                         
@@ -175,16 +176,15 @@
                                 <input id="remember" type="checkbox" class="h-4 w-4 bg-white bg-opacity-10 border border-white border-opacity-20 rounded focus:ring-green-300">
                                 <label for="remember" class="ml-2 block text-sm">Remember me</label>
                             </div>
-                            <a href="#" class="text-sm text-green-300 hover:text-green-200">Forgot password?</a>
+                            <div class="text-sm text-white text-opacity-50">Demo credentials provided</div>
                         </div>
                         
-                        <button type="submit" class="w-full bg-gradient-to-r from-green-400 to-cyan-500 py-3 px-4 rounded-lg font-medium hover:opacity-90 transition duration-300 flex items-center justify-center">
-                            <i class="fas fa-sign-in-alt mr-2"></i> Log in
+                        <button type="submit" class="w-full bg-gradient-to-r from-pink-400 to-purple-500 py-3 px-4 rounded-lg font-medium hover:opacity-90 transition duration-300 flex items-center justify-center">
+                            <i class="fas fa-play mr-2"></i> Access Movie Recommendations
                         </button>
                         
                         <div class="text-center text-sm">
-                            <span class="text-white text-opacity-70">Don't have an account? </span>
-                            <a href="#" class="text-green-300 font-medium hover:text-green-200">Sign up</a>
+                            <span class="text-white text-opacity-70">Enter credentials to start finding movies</span>
                         </div>
                     </form>
                 </div>
@@ -217,8 +217,8 @@
         // Change background every 15 seconds
         setInterval(changeBackground, 15000);
         
-        // Fruit card hover effects enhancement
-        document.querySelectorAll('.fruit-card').forEach(card => {
+        // Movie card hover effects enhancement
+        document.querySelectorAll('.movie-card').forEach(card => {
             card.addEventListener('mouseenter', () => {
                 const icon = card.querySelector('i');
                 icon.style.transform = 'scale(1.1) rotate(5deg)';
@@ -231,25 +231,81 @@
             });
         });
         
-        // Form submission handling (mock)
+        // Master credentials for movie recommendation access
+        // SECURITY NOTE: In production, these should be handled server-side
+        // For demo purposes only - implement proper authentication
+        const MASTER_USERNAME = 'movielovers';
+        const MASTER_PASSWORD = 'demo2025'; // Demo password - change for production
+        
+        // Form submission handling with authentication
         document.querySelector('form').addEventListener('submit', function(e) {
             e.preventDefault();
-            const email = document.getElementById('email').value;
+            const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
             
             // Simple validation
             if(email === '' || password === '') {
-                alert('Please fill in all fields.');
+                showAlert('Please fill in all fields.', 'error');
                 return;
             }
             
-            // Mock login
-            alert(`Welcome to NutriPro, ${email}! (Simulated login for demonstration)`);
+            // Check master credentials
+            if(email === MASTER_USERNAME && password === MASTER_PASSWORD) {
+                showAlert('🎬 Authentication successful! Opening movie recommendations...', 'success');
+                setTimeout(() => {
+                    // Open Streamlit app in same tab
+                    window.location.href = 'http://localhost:8501';
+                }, 1500);
+            } else {
+                showAlert('❌ Invalid credentials. Please try again.', 'error');
+                // Clear the form
+                document.getElementById('password').value = '';
+                document.getElementById('email').focus();
+            }
         });
+        
+        // Custom alert function with better styling
+        function showAlert(message, type = 'info') {
+            // Remove any existing alerts
+            const existingAlert = document.querySelector('.custom-alert');
+            if (existingAlert) {
+                existingAlert.remove();
+            }
+            
+            // Create alert element
+            const alert = document.createElement('div');
+            alert.className = 'custom-alert fixed top-4 right-4 p-4 rounded-lg text-white z-50 transition-all duration-300 shadow-2xl';
+            alert.style.minWidth = '300px';
+            
+            // Set colors based on type
+            if (type === 'success') {
+                alert.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                alert.style.border = '1px solid #34d399';
+            } else if (type === 'error') {
+                alert.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+                alert.style.border = '1px solid #f87171';
+            }
+            
+            alert.innerHTML = `
+                <div class="flex items-center">
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            document.body.appendChild(alert);
+            
+            // Auto remove after delay
+            const timeout = type === 'success' ? 2000 : 3000;
+            setTimeout(() => {
+                alert.style.opacity = '0';
+                alert.style.transform = 'translateX(100%)';
+                setTimeout(() => alert.remove(), 300);
+            }, timeout);
+        }
         
         // Animate elements on scroll
         const animateOnScroll = () => {
-            const elements = document.querySelectorAll('.fruit-card');
+            const elements = document.querySelectorAll('.movie-card');
             elements.forEach((el, index) => {
                 const elTop = el.getBoundingClientRect().top;
                 const windowHeight = window.innerHeight;
