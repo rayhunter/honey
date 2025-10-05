@@ -50,7 +50,14 @@ class OMDBMCPClient:
                 timeout=30
             )
             response.raise_for_status()
-            return response.json()
+            result = response.json()
+
+            # Debug: Display the raw response (only if debug mode is enabled)
+            if st.session_state.get('debug_mode', False):
+                with st.expander("🔍 Debug: View MCP API Response"):
+                    st.json(result)
+
+            return result
         except Exception as e:
             st.warning(f"OMDB MCP server not available: {e}")
             return None
@@ -77,7 +84,7 @@ class OMDBMCPClient:
         """Parse MCP response to extract movie details"""
         if "content" in mcp_result and mcp_result["content"]:
             content_text = mcp_result["content"][0].get("text", "")
-            
+
             # Extract key information from the formatted text response
             details = {
                 "title": "",
@@ -89,31 +96,52 @@ class OMDBMCPClient:
                 "director": "",
                 "imdb_rating": ""
             }
-            
+
             lines = content_text.split('\n')
-            for line in lines:
-                line = line.strip()
-                if line.startswith('🎬'):
+            plot_started = False
+            plot_lines = []
+
+            for i, line in enumerate(lines):
+                line_stripped = line.strip()
+
+                # If we're in plot mode, collect all remaining text
+                if plot_started:
+                    # Stop collecting at "Awards:" if present
+                    if line_stripped.startswith('Awards:'):
+                        break
+                    plot_lines.append(line_stripped)
+                    continue
+
+                if line_stripped.startswith('🎬'):
                     # Extract title and year from header like "🎬 The Matrix (1999)"
-                    title_year = line.replace('🎬', '').strip()
+                    title_year = line_stripped.replace('🎬', '').strip()
                     if '(' in title_year and title_year.endswith(')'):
                         details["title"] = title_year.split('(')[0].strip()
                         details["year"] = title_year.split('(')[1].replace(')', '').strip()
-                elif line.startswith('Runtime:'):
-                    details["runtime"] = line.replace('Runtime:', '').strip()
-                elif line.startswith('Genre:'):
-                    details["genre"] = line.replace('Genre:', '').strip()
-                elif line.startswith('Director:'):
-                    details["director"] = line.replace('Director:', '').strip()
-                elif line.startswith('Cast:'):
-                    details["actors"] = line.replace('Cast:', '').strip()
-                elif line.startswith('IMDB Rating:'):
-                    details["imdb_rating"] = line.replace('IMDB Rating:', '').strip()
-                elif line.startswith('Plot:'):
-                    details["plot"] = line.replace('Plot:', '').strip()
-            
+                elif line_stripped.startswith('Runtime:'):
+                    details["runtime"] = line_stripped.replace('Runtime:', '').strip()
+                elif line_stripped.startswith('Genre:'):
+                    details["genre"] = line_stripped.replace('Genre:', '').strip()
+                elif line_stripped.startswith('Director:'):
+                    details["director"] = line_stripped.replace('Director:', '').strip()
+                elif line_stripped.startswith('Cast:'):
+                    details["actors"] = line_stripped.replace('Cast:', '').strip()
+                elif line_stripped.startswith('IMDB Rating:'):
+                    details["imdb_rating"] = line_stripped.replace('IMDB Rating:', '').strip().replace('/10', '')
+                elif line_stripped.startswith('Plot:'):
+                    # Plot text starts on next lines
+                    plot_started = True
+                    # Check if there's text on the same line
+                    plot_text = line_stripped.replace('Plot:', '').strip()
+                    if plot_text:
+                        plot_lines.append(plot_text)
+
+            # Join all plot lines into a single paragraph
+            if plot_lines:
+                details["plot"] = ' '.join(plot_lines)
+
             return details
-        
+
         return None
 
 # Analyze movie preferences and get recommendations
@@ -201,11 +229,12 @@ def main():
     st.markdown('<p class="subheader">Movie Recommendations for Couples</p>', unsafe_allow_html=True)
     # st.markdown('</div>', unsafe_allow_html=True)
     
+    
     # Introduction
     st.markdown("""
     <div class="content-card">
-        <p>Can't decide on a movie to watch together? Enter each partner's favorite movies below.
-        We'll analyze your tastes and recommend films you'll both enjoy!</p>
+        <h2>Can't decide on a movie to watch together? Enter each partner's favorite movies below.
+        We'll analyze your tastes and recommend films you'll both enjoy!</h2>
     </div>
     """, unsafe_allow_html=True)
     
@@ -213,8 +242,8 @@ def main():
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown('<div class="column-card">', unsafe_allow_html=True)
-        st.subheader("🎭 Movie Lover 1's Favorites")
+        st.markdown('<div class="column-card column-card-1"><h2>🎭 Movie Lover 1\'s Favorites</h2>', unsafe_allow_html=True)
+        # st.subheader("🎭 Movie Lover 1's Favorites")
         partner1_movies = [
             st.text_input(f"Movie {i+1}", key=f"p1_{i}", placeholder="Enter a movie title").strip()
             for i in range(5)
@@ -222,18 +251,19 @@ def main():
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
-        st.markdown('<div class="column-card">', unsafe_allow_html=True)
-        st.subheader("🎬 Movie Lover 2's Favorites")
+        st.markdown('<div class="column-card column-card-2"><h2>🎬 Movie Lover 2\'s Favorites</h2>', unsafe_allow_html=True)
+        # st.subheader("🎬 Movie Lover 2's Favorites")
         partner2_movies = [
             st.text_input(f"Movie {i+1}", key=f"p2_{i}", placeholder="Enter a movie title").strip()
             for i in range(5)
         ]
         st.markdown('</div>', unsafe_allow_html=True)
-    
+
     # Submit button
-    st.markdown('<div class="button-container">', unsafe_allow_html=True)
-    find_button = st.button("🎬 Find Our Perfect Movies!", type="primary")
-    st.markdown('</div>', unsafe_allow_html=True)
+    col_left, col_center, col_right = st.columns([1, 2, 1])
+    with col_center:
+        find_button = st.button("🎬 Find Our Perfect Movies!", type="primary", use_container_width=True)
+    
     
     if find_button:
         # Filter out empty entries
@@ -248,17 +278,65 @@ def main():
                 analysis1 = analyze_movie_selections(partner1_filtered, 1)
                 analysis2 = analyze_movie_selections(partner2_filtered, 2)
                 
-                # Display analysis in a styled container
+                # Add color coding for each partner
+                analysis1['background'] = 'linear-gradient(135deg, rgb(64, 217, 141) 0%, rgba(64, 217, 141, 0.275) 100%);'  # lean to green
+                analysis2['background'] = 'linear-gradient(135deg, rgb(15, 145, 161) 0%, rgba(15, 145, 161, 0.275) 100%); '  # lean to blue
+                movie_data = [analysis1, analysis2]
+                
+                # Display analysis title
                 st.markdown("""
                 <div class="analysis-container">
-                    <div class="analysis-title">Movie Taste Analysis</div>
+                    <div class="analysis-title">🎬 Movie Taste Analysis</div>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # Convert analysis data to DataFrame for better styling
-                import pandas as pd
-                analysis_data = pd.DataFrame([analysis1, analysis2])
-                st.markdown(analysis_data.to_html(classes='analysis-table', index=False), unsafe_allow_html=True)
+                # Add custom CSS for responsive card design
+                st.markdown("""
+                <style>
+                    /* Better spacing and shadows for cards */
+                    [data-testid="stVerticalBlock"] [data-testid="stVerticalBlock"] {
+                        transition: transform 0.2s;
+                    }
+                    
+                    [data-testid="stVerticalBlock"] [data-testid="stVerticalBlock"]:hover {
+                        transform: translateY(-2px);
+                    }
+                    
+                    /* Mobile responsiveness - stack cards on small screens */
+                    @media (max-width: 768px) {
+                        [data-testid="column"] {
+                            width: 100% !important;
+                            flex: 100% !important;
+                            max-width: 100% !important;
+                        }
+                    }
+                </style>
+                """, unsafe_allow_html=True)
+                
+                # Display analysis in responsive columns
+                cols = st.columns(2)
+                
+                for idx, (col, data) in enumerate(zip(cols, movie_data)):
+                    with col:
+                        with st.container(border=True):
+                            # Custom colored header
+                            st.markdown(f"""
+                            <div style="background: {data['background']}
+                                        padding: 15px; border-radius: 8px; margin-bottom: 15px; 
+                                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                <h3 style="margin: 0; color: #fff;">🎭 {data['partner']}</h3>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                            # Movies section
+                            st.markdown("**🎥 Favorite Movies:**")
+                            st.caption(data['movies'])
+                            
+                            st.divider()
+                            
+                            # Analysis section
+                            st.markdown("**📊 Taste Profile:**")
+                            st.write(data['analysis'])
                 
                 # Get and display recommendations
                 st.markdown("### 🍿 Your Perfect Movie Matches")
@@ -294,6 +372,50 @@ def main():
                         """, unsafe_allow_html=True)
             else:
                 st.error("Couldn't generate recommendations. Please try again with different movies.")
+    
+    # Footer
+    st.markdown("---")
+    
+    # Initialize debug mode in session state if not present
+    if 'debug_mode' not in st.session_state:
+        st.session_state.debug_mode = False
+    
+    st.markdown("""
+    <div style="text-align: center; padding: 1rem 0; color: #666;">
+        <p style="margin-bottom: 0.5rem;">
+            <strong>🎬 Honey Movie Recommender</strong>
+        </p>
+        <p style="font-size: 0.9rem; margin-bottom: 0.5rem;">
+            Powered by OpenAI GPT-4 & OMDB MCP Server
+        </p>
+        <p style="font-size: 0.8rem; color: #888;">
+            Made with ❤️ for movie lovers everywhere
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Only show debug toggle if ?debug is in the URL
+    query_params = st.query_params
+    if "debug" in query_params:
+        # Subtle debug toggle - minimal styling, right-aligned
+        st.markdown("""
+        <style>
+            div[data-testid="stCheckbox"] > label {
+                font-size: 0.5rem !important;
+                color: #ccc !important;
+            }
+            div[data-testid="stCheckbox"] > label > div {
+                font-size: 0.5rem !important;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        col1, col2 = st.columns([4, 1])
+        with col2:
+            st.checkbox("debug", value=st.session_state.debug_mode, 
+                       key="debug_mode_checkbox", 
+                       on_change=lambda: setattr(st.session_state, 'debug_mode', 
+                                                 st.session_state.debug_mode_checkbox))
 
 if __name__ == "__main__":
     main()
