@@ -17,6 +17,7 @@ This Streamlit app helps couples find movies they'll both enjoy by analyzing eac
   - Runtime and genre details
   - IMDB ratings and awards
   - Director and production info
+- 📺 **Streaming Availability**: Shows where to watch each movie (Netflix, Amazon Prime, etc.) via TMDB API
 - 🎨 **Beautiful UI**: Modern glassmorphism design with dynamic gradients
 - 🔍 **Intelligent Caching**: Optimized movie data retrieval and caching
 
@@ -85,6 +86,7 @@ If you prefer manual setup:
 - **Docker & Docker Compose** (for enhanced mode) OR **Java 17+ & Maven** (for local mode)
 - **OMDB API Key** (free from [omdbapi.com](http://www.omdbapi.com/apikey.aspx))
 - **OpenAI API Key** (for AI recommendations)
+- **TMDB API Key** (optional, for streaming availability - free from [themoviedb.org](https://www.themoviedb.org/settings/api))
 
 ### Environment Setup
 
@@ -104,14 +106,16 @@ If you prefer manual setup:
    OMDB_MCP_SERVER_URL=http://localhost:8081
    ```
 
-3. **Set up OpenAI API key:**
+3. **Set up API keys:**
    - Create `.streamlit/secrets.toml`:
      ```toml
      OPENAI_API_KEY = "your_openai_api_key_here"
+     TMDB_API_KEY = "your_tmdb_api_key_here"  # Optional: for streaming availability
      ```
-   - Or set as environment variable:
+   - Or set as environment variables:
      ```bash
      export OPENAI_API_KEY="your_openai_api_key_here"
+     export TMDB_API_KEY="your_tmdb_api_key_here"  # Optional
      ```
 
 4. **Create conda environment:**
@@ -184,6 +188,7 @@ The application consists of three main components:
 |----------|-------------|----------|
 | `OMDB_API_KEY` | OMDB API key for movie data | Required |
 | `OPENAI_API_KEY` | OpenAI API key for recommendations | Required |
+| `TMDB_API_KEY` | TMDB API key for streaming availability | Optional |
 | `OMDB_MCP_SERVER_URL` | MCP server URL | `http://localhost:8081` |
 | `SERVER_PORT` | MCP server port override | `8081` |
 
@@ -272,7 +277,16 @@ pkill -f streamlit && streamlit run movie_recommender.py
 ## 🙏 Acknowledgments
 
 - [OMDB API](http://www.omdbapi.com/) for movie database access
+- [TMDB API](https://www.themoviedb.org/) for streaming availability data
 - [OpenAI](https://openai.com/) for GPT-4 AI recommendations
 - [Streamlit](https://streamlit.io/) for the web framework
 - [Spring AI](https://docs.spring.io/spring-ai/) for MCP server implementation
 - [OMDB MCP Server](https://github.com/tyrell/omdb-mcp-server) by [@tyrell](https://github.com/tyrell) - vendored and integrated for enhanced movie metadata
+
+---
+
+**Movie data powered by:**
+
+<img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_short-8e7b30f73a4020692ccca9c88bafe5dcb6f8a62a4c6bc55cd9ba82bb2cd95f6c.svg" width="100">
+
+This product uses the TMDB API but is not endorsed or certified by TMDB.

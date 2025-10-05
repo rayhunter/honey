@@ -3,6 +3,7 @@ from openai import OpenAI
 import os
 import requests
 import json
+import re
 from typing import List, Dict, Optional
 
 # Load CSS
@@ -26,6 +27,94 @@ def init_openai():
         api_key = st.secrets.get("OPENAI_API_KEY", "")
     
     return OpenAI(api_key=api_key)
+
+# TMDB client for streaming availability
+class TMDBClient:
+    def __init__(self, api_key: str = None):
+        self.api_key = api_key or os.getenv("TMDB_API_KEY") or st.secrets.get("TMDB_API_KEY", "")
+        self.base_url = "https://api.themoviedb.org/3"
+    
+    def find_movie_by_imdb_id(self, imdb_id: str) -> Optional[int]:
+        """Find TMDB movie ID using IMDB ID"""
+        if not self.api_key:
+            return None
+        
+        try:
+            response = requests.get(
+                f"{self.base_url}/find/{imdb_id}",
+                params={
+                    "api_key": self.api_key,
+                    "external_source": "imdb_id"
+                },
+                timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            if data.get("movie_results"):
+                return data["movie_results"][0]["id"]
+            return None
+        except Exception as e:
+            if st.session_state.get('debug_mode', False):
+                st.warning(f"TMDB lookup error: {e}")
+            return None
+    
+    def find_movie_by_title(self, title: str, year: Optional[str] = None) -> Optional[int]:
+        """Find TMDB movie ID using title and optional year"""
+        if not self.api_key or not title:
+            return None
+        
+        try:
+            params = {
+                "api_key": self.api_key,
+                "query": title,
+                "include_adult": "false"
+            }
+            
+            # Add year for better accuracy
+            if year:
+                params["year"] = year
+            
+            response = requests.get(
+                f"{self.base_url}/search/movie",
+                params=params,
+                timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            if st.session_state.get('debug_mode', False):
+                st.write(f"   - TMDB search for '{title}' ({year}): {len(data.get('results', []))} results")
+            
+            # Return first result's ID if found
+            if data.get("results") and len(data["results"]) > 0:
+                return data["results"][0]["id"]
+            return None
+        except Exception as e:
+            if st.session_state.get('debug_mode', False):
+                st.warning(f"TMDB search error: {e}")
+            return None
+    
+    def get_streaming_providers(self, tmdb_id: int, country: str = "US") -> Optional[Dict]:
+        """Get streaming availability for a movie"""
+        if not self.api_key or not tmdb_id:
+            return None
+        
+        try:
+            response = requests.get(
+                f"{self.base_url}/movie/{tmdb_id}/watch/providers",
+                params={"api_key": self.api_key},
+                timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            # Return streaming info for specified country
+            return data.get("results", {}).get(country, {})
+        except Exception as e:
+            if st.session_state.get('debug_mode', False):
+                st.warning(f"TMDB streaming info error: {e}")
+            return None
 
 # MCP client for OMDB server communication
 class OMDBMCPClient:
@@ -84,6 +173,11 @@ class OMDBMCPClient:
         """Parse MCP response to extract movie details"""
         if "content" in mcp_result and mcp_result["content"]:
             content_text = mcp_result["content"][0].get("text", "")
+            
+            # Debug: Show raw OMDB response
+            if st.session_state.get('debug_mode', False):
+                with st.expander("🔍 Debug: Raw OMDB Text Response"):
+                    st.code(content_text)
 
             # Extract key information from the formatted text response
             details = {
@@ -94,7 +188,8 @@ class OMDBMCPClient:
                 "runtime": "",
                 "genre": "",
                 "director": "",
-                "imdb_rating": ""
+                "imdb_rating": "",
+                "imdb_id": ""
             }
 
             lines = content_text.split('\n')
@@ -128,6 +223,13 @@ class OMDBMCPClient:
                     details["actors"] = line_stripped.replace('Cast:', '').strip()
                 elif line_stripped.startswith('IMDB Rating:'):
                     details["imdb_rating"] = line_stripped.replace('IMDB Rating:', '').strip().replace('/10', '')
+                elif line_stripped.startswith('IMDB ID:'):
+                    details["imdb_id"] = line_stripped.replace('IMDB ID:', '').strip()
+                elif 'imdb.com/title/' in line_stripped:
+                    # Extract IMDB ID from URL like "https://www.imdb.com/title/tt0133093/"
+                    match = re.search(r'tt\d+', line_stripped)
+                    if match:
+                        details["imdb_id"] = match.group(0)
                 elif line_stripped.startswith('Plot:'):
                     # Plot text starts on next lines
                     plot_started = True
@@ -139,6 +241,11 @@ class OMDBMCPClient:
             # Join all plot lines into a single paragraph
             if plot_lines:
                 details["plot"] = ' '.join(plot_lines)
+            
+            # Debug: Show extracted details
+            if st.session_state.get('debug_mode', False):
+                with st.expander("🔍 Debug: Extracted Movie Details"):
+                    st.json(details)
 
             return details
 
@@ -343,15 +450,77 @@ def main():
                 recommendations = get_movie_recommendations(partner1_filtered, partner2_filtered)
             
             if recommendations:
-                # Initialize OMDB MCP client
+                # Initialize clients
                 omdb_client = OMDBMCPClient()
+                tmdb_client = TMDBClient()
                 
                 for i, movie in enumerate(recommendations, 1):
                     # Try to get enhanced details from OMDB
                     movie_details = omdb_client.get_movie_details(movie)
                     
                     if movie_details:
-                        # Display enhanced recommendation with details
+                        # Get streaming availability from TMDB
+                        streaming_html = ""
+                        title = movie_details.get('title')
+                        year = movie_details.get('year')
+                        imdb_id = movie_details.get('imdb_id')
+                        
+                        # Debug info
+                        if st.session_state.get('debug_mode', False):
+                            st.info(f"🔍 Debug - Movie: {title}")
+                            st.write(f"   - Title: {title}")
+                            st.write(f"   - Year: {year}")
+                            st.write(f"   - IMDB ID: {imdb_id if imdb_id else 'Not available'}")
+                            st.write(f"   - TMDB API Key configured: {bool(tmdb_client.api_key)}")
+                        
+                        tmdb_id = None
+                        if tmdb_client.api_key:
+                            # Try IMDB ID first if available
+                            if imdb_id:
+                                tmdb_id = tmdb_client.find_movie_by_imdb_id(imdb_id)
+                                if st.session_state.get('debug_mode', False):
+                                    st.write(f"   - TMDB ID from IMDB: {tmdb_id}")
+                            
+                            # Fallback to title+year search
+                            if not tmdb_id and title:
+                                tmdb_id = tmdb_client.find_movie_by_title(title, year)
+                                if st.session_state.get('debug_mode', False):
+                                    st.write(f"   - TMDB ID from title search: {tmdb_id}")
+                            
+                            if tmdb_id:
+                                streaming_info = tmdb_client.get_streaming_providers(tmdb_id)
+                                
+                                if st.session_state.get('debug_mode', False):
+                                    st.write(f"   - Streaming info received: {bool(streaming_info)}")
+                                    if streaming_info:
+                                        st.json(streaming_info)
+                                
+                                if streaming_info:
+                                    # Build streaming providers HTML
+                                    providers_list = []
+                                    
+                                    # Flatrate (subscription services)
+                                    if streaming_info.get('flatrate'):
+                                        for provider in streaming_info['flatrate']:
+                                            providers_list.append(f"📺 {provider['provider_name']}")
+                                    
+                                    # Rent
+                                    if streaming_info.get('rent'):
+                                        for provider in streaming_info['rent'][:3]:  # Limit to 3
+                                            providers_list.append(f"🎬 {provider['provider_name']} (rent)")
+                                    
+                                    # Buy
+                                    if streaming_info.get('buy'):
+                                        for provider in streaming_info['buy'][:3]:  # Limit to 3
+                                            providers_list.append(f"🛒 {provider['provider_name']} (buy)")
+                                    
+                                    if providers_list:
+                                        streaming_html = f"<p><strong>🎥 Where to Watch:</strong> {' • '.join(providers_list)}</p>"
+                        elif not tmdb_client.api_key:
+                            if st.session_state.get('debug_mode', False):
+                                st.warning("⚠️ TMDB API key not configured")
+                        
+                        # Display enhanced recommendation with details and streaming
                         st.markdown(f"""
                         <div class="recommendation">
                             <h3>{i}. {movie_details.get('title', movie)} ({movie_details.get('year', '')})</h3>
@@ -360,6 +529,7 @@ def main():
                             <p><strong>Runtime:</strong> {movie_details.get('runtime', 'Runtime not available')}</p>
                             <p><strong>Genre:</strong> {movie_details.get('genre', 'Genre not available')}</p>
                             <p><strong>IMDB Rating:</strong> {movie_details.get('imdb_rating', 'Rating not available')}</p>
+                            {streaming_html}
                         </div>
                         """, unsafe_allow_html=True)
                     else:
