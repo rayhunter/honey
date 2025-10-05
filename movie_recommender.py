@@ -515,7 +515,12 @@ def main():
                                             providers_list.append(f"🛒 {provider['provider_name']} (buy)")
                                     
                                     if providers_list:
-                                        streaming_html = f"<p><strong>🎥 Where to Watch:</strong> {' • '.join(providers_list)}</p>"
+                                        # Add link to JustWatch if available
+                                        watch_link = streaming_info.get('link', '')
+                                        if watch_link:
+                                            streaming_html = f"<p><strong>🎥 Where to Watch:</strong> {' • '.join(providers_list)} <br/><a href='{watch_link}' target='_blank' style='color: #2563EB; text-decoration: none;'>→ View all options</a></p>"
+                                        else:
+                                            streaming_html = f"<p><strong>🎥 Where to Watch:</strong> {' • '.join(providers_list)}</p>"
                         elif not tmdb_client.api_key:
                             if st.session_state.get('debug_mode', False):
                                 st.warning("⚠️ TMDB API key not configured")
