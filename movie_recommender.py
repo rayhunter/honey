@@ -5,13 +5,17 @@ import requests
 import json
 import re
 from typing import List, Dict, Optional
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Load CSS
 def load_css():
     with open("style/tailwind_glassmorphism.css", "r") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-# Set up the app with Aceternity UI styling
+# Legacy setup_app function (kept for compatibility)
 def setup_app():
     st.set_page_config(
         page_title="Honey, I Love You But I Can't Watch That",
@@ -26,12 +30,24 @@ def init_openai():
     if not api_key:
         api_key = st.secrets.get("OPENAI_API_KEY", "")
     
+    # Debug: Show API key status (first 10 chars for security)
+    if api_key:
+        st.sidebar.success(f"✅ OpenAI API Key loaded: {api_key[:10]}...")
+    else:
+        st.sidebar.error("❌ OpenAI API Key not found!")
+    
     return OpenAI(api_key=api_key)
 
 # TMDB client for streaming availability
 class TMDBClient:
     def __init__(self, api_key: str = None):
         self.api_key = api_key or os.getenv("TMDB_API_KEY") or st.secrets.get("TMDB_API_KEY", "")
+        
+        # Debug: Show TMDB API key status
+        if self.api_key:
+            st.sidebar.success(f"✅ TMDB API Key loaded: {self.api_key[:10]}...")
+        else:
+            st.sidebar.warning("⚠️ TMDB API Key not found!")
         self.base_url = "https://api.themoviedb.org/3"
     
     def find_movie_by_imdb_id(self, imdb_id: str) -> Optional[int]:
@@ -308,7 +324,7 @@ def analyze_movie_selections(movies: List[str], partner_num: int) -> Dict[str, s
     
     try:
         response = client.chat.completions.create(
-            model="gpt-4.1-2025-04-14",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": user_message}
@@ -324,18 +340,57 @@ def analyze_movie_selections(movies: List[str], partner_num: int) -> Dict[str, s
         }
     except Exception as e:
         st.error(f"Error analyzing movie selections: {e}")
-        return {}
+        # Return a fallback structure instead of empty dict
+        return {
+            "partner": f"Movie Lover {partner_num}",
+            "movies": ", ".join(movies),
+            "analysis": f"Analysis unavailable due to error: {str(e)}"
+        }
+
+# Initialize session state for styling toggle
+def init_session_state():
+    if 'enable_styling' not in st.session_state:
+        st.session_state.enable_styling = True
+
+# Cached function to load CSS only when needed
+@st.cache_data
+def load_css_cached():
+    with open("style/tailwind_glassmorphism.css", "r") as f:
+        return f.read()
+
+# Optimized setup_app function
+def setup_app_optimized():
+    # Only load CSS if styling is enabled
+    if st.session_state.enable_styling:
+        css_content = load_css_cached()
+        st.markdown(f"<style>{css_content}</style>", unsafe_allow_html=True)
 
 # Main app function
 def main():
-    setup_app()
+    # Initialize session state
+    init_session_state()
     
-    # App Header
-    # st.markdown('<div class="app-header">', unsafe_allow_html=True)
+    # Set page config first (must be first Streamlit command)
+    st.set_page_config(
+        page_title="Honey, I Love You But I Can't Watch That",
+        page_icon="🎬",
+        layout="wide"
+    )
+    
+    # Toggle for app styling (right-aligned)
+    col1, col2 = st.columns([3, 1])
+    with col2:
+        st.session_state.enable_styling = st.toggle(
+            "🎨 Plain or Pretty", 
+            value=st.session_state.enable_styling, 
+            help="Toggle to enable/disable the custom app styling and theme"
+        )
+    
+    # Apply optimized styling
+    setup_app_optimized()
+    
     st.markdown('<h1 class="title">Honey, I Love You But I Can\'t Watch That</h1>', unsafe_allow_html=True)
     st.markdown('<p class="subheader">Movie Recommendations for Couples</p>', unsafe_allow_html=True)
-    # st.markdown('</div>', unsafe_allow_html=True)
-    
     
     # Introduction
     st.markdown("""
@@ -426,9 +481,14 @@ def main():
                 for idx, (col, data) in enumerate(zip(cols, movie_data)):
                     with col:
                         with st.container(border=True):
+                            # Check if data has required keys
+                            if not data or 'partner' not in data:
+                                st.error(f"Error loading analysis for partner {idx + 1}")
+                                continue
+                                
                             # Custom colored header
                             st.markdown(f"""
-                            <div style="background: {data['background']}
+                            <div style="background: {data.get('background', 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)')}
                                         padding: 15px; border-radius: 8px; margin-bottom: 15px; 
                                         box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                                 <h3 style="margin: 0; color: #fff;">🎭 {data['partner']}</h3>
@@ -437,13 +497,13 @@ def main():
                             
                             # Movies section
                             st.markdown("**🎥 Favorite Movies:**")
-                            st.caption(data['movies'])
+                            st.caption(data.get('movies', 'No movies available'))
                             
                             st.divider()
                             
                             # Analysis section
                             st.markdown("**📊 Taste Profile:**")
-                            st.write(data['analysis'])
+                            st.write(data.get('analysis', 'Analysis not available'))
                 
                 # Get and display recommendations
                 st.markdown("### 🍿 Your Perfect Movie Matches")

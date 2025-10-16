@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # OMDB MCP Server
+  omdb-mcp-server:
+    build:
+      context: ./omdb-mcp-server
+      dockerfile: Dockerfile
+    container_name: omdb-mcp-server-prod
+    ports:
+      - "8081:8081"
+    environment:
+      - OMDB_API_KEY=${OMDB_API_KEY}
+      - SERVER_PORT=8081
+      - SPRING_PROFILES_ACTIVE=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # Streamlit App
+  streamlit-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    container_name: streamlit-app-prod
+    ports:
+      - "8501:8501"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - MCP_SERVER_URL=http://omdb-mcp-server:8081
+    depends_on:
+      omdb-mcp-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+

@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Honey, I Love You But I Can't Watch That</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Font Awesome CDN with fallback -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <!-- Fallback Font Awesome CDN -->
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v6.5.1/css/all.css" crossorigin="anonymous">
     <style>
         @keyframes gradientBackground {
             0% { background-position: 0% 50%; }
@@ -48,24 +51,34 @@
         .text-glow {
             text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
         }
+        
+        .icon-glow {
+            filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.6));
+            transition: all 0.3s ease;
+        }
+        
+        .icon-glow:hover {
+            filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.8));
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body class="font-sans text-white min-h-screen dynamic-bg flex flex-col">
     <!-- Floating movie decoration -->
-    <div class="fixed top-16 left-16 text-6xl opacity-20 floating">
-        <i class="fas fa-film"></i>
+    <div class="fixed top-16 left-16 text-6xl opacity-60 floating">
+        <i class="fas fa-film icon-glow"></i>
     </div>
-    <div class="fixed top-1/4 right-20 text-5xl opacity-25 floating" style="animation-delay: 0.5s;">
-        <i class="fas fa-video"></i>
+    <div class="fixed top-1/4 right-20 text-5xl opacity-55 floating" style="animation-delay: 0.5s;">
+        <i class="fas fa-video icon-glow"></i>
     </div>
-    <div class="fixed bottom-32 left-1/4 text-7xl opacity-30 floating" style="animation-delay: 1s;">
-        <i class="fas fa-camera"></i>
+    <div class="fixed bottom-32 left-1/4 text-7xl opacity-50 floating" style="animation-delay: 1s;">
+        <i class="fas fa-camera icon-glow"></i>
     </div>
-    <div class="fixed top-1/2 right-1/3 text-6xl opacity-15 floating" style="animation-delay: 1.5s;">
-        <i class="fas fa-ticket-alt"></i>
+    <div class="fixed top-1/2 right-1/3 text-6xl opacity-45 floating" style="animation-delay: 1.5s;">
+        <i class="fas fa-ticket-alt icon-glow"></i>
     </div>
-    <div class="fixed bottom-20 right-32 text-8xl opacity-25 floating" style="animation-delay: 2s;">
-        <i class="fas fa-theater-masks"></i>
+    <div class="fixed bottom-20 right-32 text-8xl opacity-50 floating" style="animation-delay: 2s;">
+        <i class="fas fa-theater-masks icon-glow"></i>
     </div>
 
     <!-- Header -->
@@ -198,6 +211,53 @@
     </footer>
 
     <script>
+        // Font Awesome loading check and fallback
+        function checkFontAwesome() {
+            // Check if Font Awesome is loaded by testing if the CSS is applied
+            const testIcon = document.createElement('i');
+            testIcon.className = 'fas fa-film';
+            testIcon.style.position = 'absolute';
+            testIcon.style.left = '-9999px';
+            testIcon.style.fontSize = '16px';
+            document.body.appendChild(testIcon);
+            
+            const computedStyle = window.getComputedStyle(testIcon);
+            const fontFamily = computedStyle.getPropertyValue('font-family');
+            
+            // If Font Awesome isn't loaded, add fallback styling
+            if (!fontFamily.includes('Font Awesome') && !fontFamily.includes('FontAwesome')) {
+                console.warn('Font Awesome not loaded, applying fallback styling');
+                
+                // Add fallback CSS for icons
+                const fallbackCSS = `
+                    .fas.fa-film::before { content: "🎬"; font-family: Arial, sans-serif; }
+                    .fas.fa-video::before { content: "📹"; font-family: Arial, sans-serif; }
+                    .fas.fa-camera::before { content: "📷"; font-family: Arial, sans-serif; }
+                    .fas.fa-ticket-alt::before { content: "🎫"; font-family: Arial, sans-serif; }
+                    .fas.fa-theater-masks::before { content: "🎭"; font-family: Arial, sans-serif; }
+                    .fas.fa-heart::before { content: "❤️"; font-family: Arial, sans-serif; }
+                    .fas.fa-rocket::before { content: "🚀"; font-family: Arial, sans-serif; }
+                    .fas.fa-laugh::before { content: "😄"; font-family: Arial, sans-serif; }
+                    .fas.fa-user::before { content: "👤"; font-family: Arial, sans-serif; }
+                    .fas.fa-lock::before { content: "🔒"; font-family: Arial, sans-serif; }
+                    .fas.fa-play::before { content: "▶️"; font-family: Arial, sans-serif; }
+                    .fas.fa-arrow-down::before { content: "⬇️"; font-family: Arial, sans-serif; }
+                `;
+                
+                const style = document.createElement('style');
+                style.textContent = fallbackCSS;
+                document.head.appendChild(style);
+            }
+            
+            document.body.removeChild(testIcon);
+        }
+        
+        // Check Font Awesome when page loads
+        window.addEventListener('load', checkFontAwesome);
+        
+        // Also check after a short delay in case of slow loading
+        setTimeout(checkFontAwesome, 2000);
+        
         // Dynamic background color change
         const colors = [
             'linear-gradient(-45deg, #3b82f6, #4ade80, #f59e0b, #ec4899)',
@@ -235,7 +295,7 @@
         // SECURITY NOTE: In production, these should be handled server-side
         // For demo purposes only - implement proper authentication
         const MASTER_USERNAME = 'movielovers';
-        const MASTER_PASSWORD = 'demo2025'; // Demo password - change for production
+        const MASTER_PASSWORD = 'honeylove2025'; // Demo password - change for production
         
         // Form submission handling with authentication
         document.querySelector('form').addEventListener('submit', function(e) {

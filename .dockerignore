@@ -1,0 +1,69 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+!README.md
+LICENSE
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+.pytest_cache/
+.coverage
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+streamlit.log
+
+# Secrets
+.env
+.streamlit/secrets.toml
+*.key
+*.pem
+
+# Docker
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Scripts
+*.sh
+start*.sh
+stop*.sh
+
+# Tests
+tests/
+test_*.py
+*_test.py
+
+# MCP Server (when building Streamlit)
+omdb-mcp-server/
+
+# Temporary files
+*.tmp
+*.bak
+.cache/
+tmp/
+temp/
+
