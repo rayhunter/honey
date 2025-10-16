@@ -24,19 +24,39 @@ def setup_app():
     )
     load_css()
 
-# Initialize OpenAI client
-def init_openai():
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        api_key = st.secrets.get("OPENAI_API_KEY", "")
-    
-    # Debug: Show API key status (first 10 chars for security)
-    if api_key:
-        st.sidebar.success(f"✅ OpenAI API Key loaded: {api_key[:10]}...")
+# Initialize AI client (OpenAI or DeepSeek)
+def init_ai_client():
+    if st.session_state.use_deepseek:
+        # DeepSeek configuration
+        api_key = os.getenv("DEEPSEEK_API_KEY")
+        if not api_key:
+            api_key = st.secrets.get("DEEPSEEK_API_KEY", "")
+        
+        if api_key:
+            st.sidebar.success(f"✅ DeepSeek API Key loaded: {api_key[:10]}...")
+            return OpenAI(
+                api_key=api_key,
+                base_url="https://api.deepseek.com/v1"
+            )
+        else:
+            st.sidebar.error("❌ DeepSeek API Key not found!")
+            return None
     else:
-        st.sidebar.error("❌ OpenAI API Key not found!")
-    
-    return OpenAI(api_key=api_key)
+        # OpenAI configuration
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            api_key = st.secrets.get("OPENAI_API_KEY", "")
+        
+        if api_key:
+            st.sidebar.success(f"✅ OpenAI API Key loaded: {api_key[:10]}...")
+            return OpenAI(api_key=api_key)
+        else:
+            st.sidebar.error("❌ OpenAI API Key not found!")
+            return None
+
+# Legacy function for backward compatibility
+def init_openai():
+    return init_ai_client()
 
 # TMDB client for streaming availability
 class TMDBClient:
@@ -268,11 +288,18 @@ class OMDBMCPClient:
         return None
 
 # Analyze movie preferences and get recommendations
-def get_movie_recommendations(partner1_movies: List[str], partner2_movies: List[str]) -> List[str]:
+def get_movie_recommendations(partner1_movies: List[str], partner2_movies: List[str], client=None) -> List[str]:
     if not partner1_movies or not partner2_movies:
         return []
     
-    client = init_openai()
+    if not client:
+        client = init_ai_client()
+        if not client:
+            show_error_once("Sorry, API service is unavailable at this time. Please check your API key configuration.")
+            return []
+    
+    # Select model based on user choice
+    model_name = "deepseek-chat" if st.session_state.use_deepseek else "gpt-4o-mini"
     
     system_message = "You are a knowledgeable film critic who can identify cinematic commonalities between different movie preferences."
     user_message = f"""
@@ -289,7 +316,7 @@ def get_movie_recommendations(partner1_movies: List[str], partner2_movies: List[
     
     try:
         response = client.chat.completions.create(
-            model="gpt-4.1-2025-04-14",
+            model=model_name,
             messages=[
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": user_message}
@@ -301,14 +328,26 @@ def get_movie_recommendations(partner1_movies: List[str], partner2_movies: List[
         recommendations = response.choices[0].message.content.strip()
         return [line.split(". ", 1)[1] for line in recommendations.split("\n") if ". " in line]
     except Exception as e:
-        st.error(f"Error getting recommendations: {e}")
+        current_model = "DeepSeek" if st.session_state.use_deepseek else "OpenAI"
+        show_error_once(f"Sorry, {current_model} service is unavailable at this time. Try other model selection or try again later.")
         return []
 
-def analyze_movie_selections(movies: List[str], partner_num: int) -> Dict[str, str]:
+def analyze_movie_selections(movies: List[str], partner_num: int, client=None) -> Dict[str, str]:
     if not movies:
         return {}
     
-    client = init_openai()
+    if not client:
+        client = init_ai_client()
+        if not client:
+            show_error_once("Sorry, API service is unavailable at this time. Please check your API key configuration.")
+            return {
+                "partner": f"Movie Lover {partner_num}",
+                "movies": ", ".join(movies),
+                "analysis": "Analysis unavailable - API service error"
+            }
+    
+    # Select model based on user choice
+    model_name = "deepseek-chat" if st.session_state.use_deepseek else "gpt-4o-mini"
     
     system_message = "You are a knowledgeable film critic who can provide concise analysis of movie preferences."
     user_message = f"""
@@ -324,7 +363,7 @@ def analyze_movie_selections(movies: List[str], partner_num: int) -> Dict[str, s
     
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model_name,
             messages=[
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": user_message}
@@ -339,18 +378,29 @@ def analyze_movie_selections(movies: List[str], partner_num: int) -> Dict[str, s
             "analysis": response.choices[0].message.content.strip()
         }
     except Exception as e:
-        st.error(f"Error analyzing movie selections: {e}")
+        current_model = "DeepSeek" if st.session_state.use_deepseek else "OpenAI"
+        show_error_once(f"Sorry, {current_model} service is unavailable at this time. Try other model selection or try again later.")
         # Return a fallback structure instead of empty dict
         return {
             "partner": f"Movie Lover {partner_num}",
             "movies": ", ".join(movies),
-            "analysis": f"Analysis unavailable due to error: {str(e)}"
+            "analysis": f"Analysis unavailable - {current_model} service error"
         }
 
-# Initialize session state for styling toggle
+# Initialize session state for styling toggle and model selection
 def init_session_state():
     if 'enable_styling' not in st.session_state:
         st.session_state.enable_styling = True
+    if 'use_deepseek' not in st.session_state:
+        st.session_state.use_deepseek = False
+    if 'error_shown' not in st.session_state:
+        st.session_state.error_shown = False
+
+# Helper function to show error toast only once per session
+def show_error_once(message: str, icon: str = "⚠️"):
+    if not st.session_state.error_shown:
+        st.toast(message, icon=icon)
+        st.session_state.error_shown = True
 
 # Cached function to load CSS only when needed
 @st.cache_data
@@ -377,26 +427,43 @@ def main():
         layout="wide"
     )
     
-    # Toggle for app styling (right-aligned)
-    col1, col2 = st.columns([3, 1])
-    with col2:
-        st.session_state.enable_styling = st.toggle(
-            "🎨 Plain or Pretty", 
-            value=st.session_state.enable_styling, 
-            help="Toggle to enable/disable the custom app styling and theme"
-        )
-    
     # Apply optimized styling
     setup_app_optimized()
     
     st.markdown('<h1 class="title">Honey, I Love You But I Can\'t Watch That</h1>', unsafe_allow_html=True)
     st.markdown('<p class="subheader">Movie Recommendations for Couples</p>', unsafe_allow_html=True)
     
+    # Toggles for app styling and model selection (below subtitle)
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        enable_styling = st.toggle(
+            "🎨 Style: Plain or Pretty", 
+            value=st.session_state.enable_styling, 
+            help="Toggle to enable/disable the custom app styling and theme"
+        )
+        if enable_styling != st.session_state.enable_styling:
+            st.session_state.enable_styling = enable_styling
+            st.rerun()
+    with col2:
+        use_deepseek = st.toggle(
+            "🤖 Model: OpenAI or DeepSeek", 
+            value=st.session_state.use_deepseek, 
+            help="Toggle between OpenAI (off) and DeepSeek (on) models"
+        )
+        if use_deepseek != st.session_state.use_deepseek:
+            st.session_state.use_deepseek = use_deepseek
+            st.session_state.error_shown = False  # Reset error flag when model changes
+            st.rerun()
+    
+    # Show current model selection
+    current_model = "DeepSeek" if st.session_state.use_deepseek else "OpenAI"
+    st.sidebar.info(f"🤖 Using: {current_model} Model")
+    
     # Introduction
     st.markdown("""
     <div class="content-card">
-        <h2>Can't decide on a movie to watch together? Enter each partner's favorite movies below.
-        We'll analyze your tastes and recommend films you'll both enjoy!</h2>
+        <h3>Can't decide on a movie to watch together? Enter each partner's favorite movies below.
+        We'll analyze your tastes and recommend films you'll both enjoy!</h3>
     </div>
     """, unsafe_allow_html=True)
     
@@ -404,7 +471,7 @@ def main():
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown('<div class="column-card column-card-1"><h2>🎭 Movie Lover 1\'s Favorites</h2>', unsafe_allow_html=True)
+        st.markdown('<div class="column-card column-card-1"><h3>🎭 Movie Lover 1\'s Favorites</h3>', unsafe_allow_html=True)
         # st.subheader("🎭 Movie Lover 1's Favorites")
         partner1_movies = [
             st.text_input(f"Movie {i+1}", key=f"p1_{i}", placeholder="Enter a movie title").strip()
@@ -413,7 +480,7 @@ def main():
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
-        st.markdown('<div class="column-card column-card-2"><h2>🎬 Movie Lover 2\'s Favorites</h2>', unsafe_allow_html=True)
+        st.markdown('<div class="column-card column-card-2"><h3>🎬 Movie Lover 2\'s Favorites</h3>', unsafe_allow_html=True)
         # st.subheader("🎬 Movie Lover 2's Favorites")
         partner2_movies = [
             st.text_input(f"Movie {i+1}", key=f"p2_{i}", placeholder="Enter a movie title").strip()
@@ -436,9 +503,15 @@ def main():
             st.warning("Please enter at least 3 movies for each partner for better recommendations!")
         else:
             with st.spinner("Analyzing your movie tastes..."):
-                # Analyze each partner's selections
-                analysis1 = analyze_movie_selections(partner1_filtered, 1)
-                analysis2 = analyze_movie_selections(partner2_filtered, 2)
+                # Initialize AI client once
+                ai_client = init_ai_client()
+                if not ai_client:
+                    show_error_once("Sorry, API service is unavailable at this time. Please check your API key configuration.")
+                    return
+                
+                # Analyze each partner's selections using the same client
+                analysis1 = analyze_movie_selections(partner1_filtered, 1, ai_client)
+                analysis2 = analyze_movie_selections(partner2_filtered, 2, ai_client)
                 
                 # Add color coding for each partner
                 analysis1['background'] = 'linear-gradient(135deg, rgb(64, 217, 141) 0%, rgba(64, 217, 141, 0.275) 100%);'  # lean to green
@@ -505,9 +578,9 @@ def main():
                             st.markdown("**📊 Taste Profile:**")
                             st.write(data.get('analysis', 'Analysis not available'))
                 
-                # Get and display recommendations
+                # Get and display recommendations using the same client
                 st.markdown("### 🍿 Your Perfect Movie Matches")
-                recommendations = get_movie_recommendations(partner1_filtered, partner2_filtered)
+                recommendations = get_movie_recommendations(partner1_filtered, partner2_filtered, ai_client)
             
             if recommendations:
                 # Initialize clients
@@ -621,7 +694,7 @@ def main():
             <strong>🎬 Honey Movie Recommender</strong>
         </p>
         <p style="font-size: 0.9rem; margin-bottom: 0.5rem;">
-            Powered by OpenAI GPT-4 & OMDB MCP Server
+            Powered by OpenAI/DeepSeek & OMDB MCP & TMDB API
         </p>
         <p style="font-size: 0.8rem; color: #888;">
             Made with ❤️ for movie lovers everywhere
