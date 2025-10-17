@@ -414,6 +414,42 @@ def setup_app_optimized():
     if st.session_state.enable_styling:
         css_content = load_css_cached()
         st.markdown(f"<style>{css_content}</style>", unsafe_allow_html=True)
+    
+    # Add clean toggle styling using CSS custom properties
+    st.markdown("""
+    <style>
+    :root {
+        --toggle-bg: #87CEEB;
+        --toggle-bg-checked: #4682B4;
+        --toggle-border: #4682B4;
+        --toggle-knob: white;
+        --toggle-hover: #B0E0E6;
+    }
+    
+    /* Clean toggle styling using attribute selectors */
+    [data-testid="stToggle"] > label > div {
+        background-color: var(--toggle-bg) !important;
+        border: 2px solid var(--toggle-border) !important;
+        border-radius: 20px !important;
+        transition: all 0.2s ease !important;
+    }
+    
+    [data-testid="stToggle"] > label > div[aria-checked="true"] {
+        background-color: var(--toggle-bg-checked) !important;
+    }
+    
+    [data-testid="stToggle"] > label > div > div {
+        background-color: var(--toggle-knob) !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+        border-radius: 50% !important;
+    }
+    
+    [data-testid="stToggle"] > label > div:hover {
+        background-color: var(--toggle-hover) !important;
+        transform: scale(1.05);
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 # Main app function
 def main():
@@ -691,13 +727,13 @@ def main():
     st.markdown("""
     <div style="text-align: center; padding: 1rem 0; color: #666;">
         <p style="margin-bottom: 0.5rem;">
-            <strong>🎬 Honey Movie Recommender</strong>
+            <strong>🎬 Honey, I love You But I Can't Watch That</strong>
         </p>
-        <p style="font-size: 0.9rem; margin-bottom: 0.5rem;">
+        <p style="font-size: 0.8rem; margin-bottom: 0.5rem;">
             Powered by OpenAI/DeepSeek & OMDB MCP & TMDB API
         </p>
-        <p style="font-size: 0.8rem; color: #888;">
-            Made with ❤️ for movie lovers everywhere
+        <p style="font-size: 0.9rem; color: #888;">
+             &copy; Made with ❤️ for movie lovers by LikeSugarAI 2025
         </p>
     </div>
     """, unsafe_allow_html=True)
