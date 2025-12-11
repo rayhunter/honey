@@ -44,8 +44,8 @@ streamlit.log
 
 # Docker
 docker-compose*.yml
-Dockerfile*
-.dockerignore
+Dockerfile.*.backup
+Dockerfile.streamlit.backup
 
 # Scripts
 *.sh
