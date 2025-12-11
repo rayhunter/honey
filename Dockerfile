@@ -23,14 +23,12 @@ RUN mkdir -p .streamlit
 # Expose port for Railway
 EXPOSE 8501
 
-# Health check
-HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health || exit 1
+# Health check - Railway sets $PORT dynamically
+HEALTHCHECK CMD curl --fail http://localhost:${PORT:-8501}/_stcore/health || exit 1
 
 # Start Streamlit with proper configuration for Railway
 CMD streamlit run movie_recommender.py \
     --server.port=${PORT:-8501} \
     --server.address=0.0.0.0 \
     --server.headless=true \
-    --browser.serverAddress="0.0.0.0" \
-    --server.enableCORS=false \
-    --server.enableXsrfProtection=true
+    --browser.gatherUsageStats=false
