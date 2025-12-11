@@ -290,3 +290,20 @@ pkill -f streamlit && streamlit run movie_recommender.py
 <img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_short-8e7b30f73a4020692ccca9c88bafe5dcb6f8a62a4c6bc55cd9ba82bb2cd95f6c.svg" width="100">
 
 This product uses the TMDB API but is not endorsed or certified by TMDB.
+
+---
+
+1. Select your service (the Streamlit app service)
+  2. Look for the "Settings" tab (should be in the top navigation)
+  3. In Settings, look for these sections:
+    - "Source" or "Deploy" section
+    - "Builder" or "Build Method"
+    - "Root Directory" or "Service Path"
+  4. What to check/change:
+    - Root Directory: Should be / (root) or empty
+    - Dockerfile Path: Should be Dockerfile.streamlit
+    - Build Command: Should be empty/blank
+    - Start Command: Should be empty/blank (Procfile handles it)
+  5. Alternative: Check if Railway is using Nixpacks
+    - If you see "Nixpacks" mentioned anywhere, that's the problem
+    - Change it to use Docker instead
