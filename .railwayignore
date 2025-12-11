@@ -1,0 +1,25 @@
+# Docker Compose files (for local development only)
+docker-compose.yml
+docker-compose.prod.yml
+
+# Startup scripts (for local development only)
+start_project.sh
+start_project_docker.sh
+start_project_compose.sh
+start.sh
+stop.sh
+
+# OMDB MCP Server (not needed for Railway deployment)
+omdb-mcp-server/
+
+# Development files
+*.log
+.DS_Store
+.vscode/
+.idea/
+__pycache__/
+
+# Test files
+tests/
+test_*.py
+*_test.py
