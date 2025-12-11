@@ -141,7 +141,7 @@ class TMDBClient:
         """Get streaming availability for a movie"""
         if not self.api_key or not tmdb_id:
             return None
-        
+
         try:
             response = requests.get(
                 f"{self.base_url}/movie/{tmdb_id}/watch/providers",
@@ -150,12 +150,79 @@ class TMDBClient:
             )
             response.raise_for_status()
             data = response.json()
-            
+
             # Return streaming info for specified country
             return data.get("results", {}).get(country, {})
         except Exception as e:
             if st.session_state.get('debug_mode', False):
                 st.warning(f"TMDB streaming info error: {e}")
+            return None
+
+    def get_movie_details(self, title: str, year: Optional[str] = None) -> Optional[Dict]:
+        """Get detailed movie information from TMDB"""
+        if not self.api_key:
+            return None
+
+        try:
+            # First, find the movie ID
+            tmdb_id = self.find_movie_by_title(title, year)
+            if not tmdb_id:
+                return None
+
+            # Get movie details
+            response = requests.get(
+                f"{self.base_url}/movie/{tmdb_id}",
+                params={
+                    "api_key": self.api_key,
+                    "append_to_response": "credits"  # Include cast and crew
+                },
+                timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            if st.session_state.get('debug_mode', False):
+                st.write(f"   - TMDB details for '{title}': Success")
+
+            # Extract cast (limit to first 5 actors)
+            cast_list = []
+            if data.get('credits', {}).get('cast'):
+                cast_list = [actor['name'] for actor in data['credits']['cast'][:5]]
+
+            # Extract director
+            director = ""
+            if data.get('credits', {}).get('crew'):
+                for person in data['credits']['crew']:
+                    if person.get('job') == 'Director':
+                        director = person['name']
+                        break
+
+            # Extract genres
+            genres = ", ".join([genre['name'] for genre in data.get('genres', [])])
+
+            # Format runtime
+            runtime_min = data.get('runtime', 0)
+            runtime = f"{runtime_min} min" if runtime_min else "Runtime not available"
+
+            # Construct movie details dictionary
+            details = {
+                "title": data.get('title', title),
+                "year": data.get('release_date', '')[:4] if data.get('release_date') else year or '',
+                "plot": data.get('overview', 'Plot not available'),
+                "actors": ", ".join(cast_list) if cast_list else "Cast not available",
+                "runtime": runtime,
+                "genre": genres if genres else "Genre not available",
+                "director": director if director else "Director not available",
+                "imdb_rating": f"{data.get('vote_average', 0):.1f}" if data.get('vote_average') else "Rating not available",
+                "imdb_id": data.get('imdb_id', ''),
+                "tmdb_id": tmdb_id
+            }
+
+            return details
+
+        except Exception as e:
+            if st.session_state.get('debug_mode', False):
+                st.warning(f"TMDB movie details error: {e}")
             return None
 
 # MCP client for OMDB server communication
@@ -309,7 +376,7 @@ def get_movie_recommendations(partner1_movies: List[str], partner2_movies: List[
     
     system_message = "You are a knowledgeable film critic who can identify cinematic commonalities between different movie preferences."
     user_message = f"""
-    Analyze these two lists of favorite movies from partners in a relationship and identify 5 new movie recommendations 
+    Analyze these two lists of favorite movies from partners in a relationship and identify 7 new movie recommendations 
     that would appeal to both based on common themes, genres, directors, or styles. 
     Return only the movie titles in a numbered list, nothing else.
     
@@ -401,12 +468,46 @@ def init_session_state():
         st.session_state.use_deepseek = False
     if 'error_shown' not in st.session_state:
         st.session_state.error_shown = False
+    if 'viewed_movies' not in st.session_state:
+        st.session_state.viewed_movies = set()
+    if 'all_recommendations' not in st.session_state:
+        st.session_state.all_recommendations = []
+    if 'current_displayed' not in st.session_state:
+        st.session_state.current_displayed = []
 
 # Helper function to show error toast only once per session
 def show_error_once(message: str, icon: str = "⚠️"):
     if not st.session_state.error_shown:
         st.toast(message, icon=icon)
         st.session_state.error_shown = True
+
+# Function to manage dynamic recommendations
+def get_displayed_recommendations():
+    """Get the current 5 recommendations to display, replacing viewed ones with remaining options"""
+    if not st.session_state.all_recommendations:
+        return []
+    
+    # Get movies that haven't been viewed yet
+    available_movies = [movie for movie in st.session_state.all_recommendations 
+                       if movie not in st.session_state.viewed_movies]
+    
+    # If we have 5 or more available, show first 5
+    if len(available_movies) >= 5:
+        return available_movies[:5]
+    
+    # If we have fewer than 5 available, show all available
+    return available_movies
+
+def mark_movie_as_viewed(movie_title: str):
+    """Mark a movie as viewed and update the displayed recommendations"""
+    if movie_title not in st.session_state.viewed_movies:
+        st.session_state.viewed_movies.add(movie_title)
+        remaining = len(st.session_state.all_recommendations) - len(st.session_state.viewed_movies)
+        if remaining > 0:
+            st.success(f"✅ Marked '{movie_title}' as viewed. Getting a new recommendation... ({remaining} remaining)")
+        else:
+            st.success(f"✅ Marked '{movie_title}' as viewed. No more recommendations available.")
+        st.rerun()
 
 # PDF generation function
 def generate_movie_recommendations_pdf(partner1_movies: List[str], partner2_movies: List[str], 
@@ -548,6 +649,57 @@ def setup_app_optimized():
     [data-testid="stDownloadButton"] > button:active {
         transform: translateY(0) scale(1.02) !important;
         box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3) !important;
+    }
+    
+    /* Cute checkbox styling for "Viewed" positioned after recommendation cards */
+    .recommendation + div [data-testid="stCheckbox"] {
+        margin-top: -1rem !important;
+        margin-bottom: 1rem !important;
+    }
+    
+    .recommendation + div [data-testid="stCheckbox"] > label {
+        font-size: 0.9rem !important;
+        color: rgba(255, 255, 255, 0.9) !important;
+        font-weight: 500 !important;
+        margin: 0 !important;
+        padding: 0.4rem 0.8rem !important;
+        background: rgba(255, 255, 255, 0.1) !important;
+        border-radius: 6px !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        backdrop-filter: blur(10px) !important;
+        transition: all 0.3s ease !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 0.5rem !important;
+        cursor: pointer !important;
+    }
+    
+    .recommendation + div [data-testid="stCheckbox"] > label:hover {
+        background: rgba(255, 255, 255, 0.2) !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    .recommendation + div [data-testid="stCheckbox"] > label > div {
+        background: linear-gradient(135deg, #FF6B6B, #4ECDC4) !important;
+        border: 2px solid rgba(255, 255, 255, 0.3) !important;
+        border-radius: 4px !important;
+        transition: all 0.3s ease !important;
+        width: 18px !important;
+        height: 18px !important;
+    }
+    
+    .recommendation + div [data-testid="stCheckbox"] > label > div[aria-checked="true"] {
+        background: linear-gradient(135deg, #FF5252, #26A69A) !important;
+        box-shadow: 0 0 8px rgba(255, 107, 107, 0.4) !important;
+    }
+    
+    .recommendation + div [data-testid="stCheckbox"] > label > div > div {
+        background: white !important;
+        border-radius: 50% !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+        width: 12px !important;
+        height: 12px !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -731,8 +883,10 @@ def main():
                 
                 recommendations = get_movie_recommendations(partner1_filtered, partner2_filtered, ai_client)
                 
-                # Add recommendations to session state for PDF generation
+                # Store all 7 recommendations in session state
                 if recommendations:
+                    st.session_state.all_recommendations = recommendations
+                    st.session_state.viewed_movies = set()  # Reset viewed movies
                     st.session_state.pdf_data['recommendations'] = recommendations
                 
                 # Add the cute download button
@@ -755,71 +909,61 @@ def main():
                             type="secondary"
                         )
             
-            if recommendations:
-                # Initialize clients
-                omdb_client = OMDBMCPClient()
-                tmdb_client = TMDBClient()
-                
-                for i, movie in enumerate(recommendations, 1):
-                    # Try to get enhanced details from OMDB
-                    movie_details = omdb_client.get_movie_details(movie)
-                    
-                    if movie_details:
-                        # Get streaming availability from TMDB
-                        streaming_html = ""
-                        title = movie_details.get('title')
-                        year = movie_details.get('year')
-                        imdb_id = movie_details.get('imdb_id')
-                        
-                        # Debug info
-                        if st.session_state.get('debug_mode', False):
-                            st.info(f"🔍 Debug - Movie: {title}")
-                            st.write(f"   - Title: {title}")
-                            st.write(f"   - Year: {year}")
-                            st.write(f"   - IMDB ID: {imdb_id if imdb_id else 'Not available'}")
-                            st.write(f"   - TMDB API Key configured: {bool(tmdb_client.api_key)}")
-                        
-                        tmdb_id = None
-                        if tmdb_client.api_key:
-                            # Try IMDB ID first if available
-                            if imdb_id:
-                                tmdb_id = tmdb_client.find_movie_by_imdb_id(imdb_id)
-                                if st.session_state.get('debug_mode', False):
-                                    st.write(f"   - TMDB ID from IMDB: {tmdb_id}")
-                            
-                            # Fallback to title+year search
-                            if not tmdb_id and title:
-                                tmdb_id = tmdb_client.find_movie_by_title(title, year)
-                                if st.session_state.get('debug_mode', False):
-                                    st.write(f"   - TMDB ID from title search: {tmdb_id}")
-                            
-                            if tmdb_id:
+            # Check if we have stored recommendations from a previous run
+            if st.session_state.all_recommendations:
+                # Get the current recommendations to display (5 out of 7)
+                displayed_recommendations = get_displayed_recommendations()
+
+                if displayed_recommendations:
+                    # Initialize TMDB client
+                    tmdb_client = TMDBClient()
+
+                    for i, movie in enumerate(displayed_recommendations, 1):
+                        # Get enhanced details from TMDB
+                        movie_details = tmdb_client.get_movie_details(movie)
+
+                        if movie_details:
+                            # Get streaming availability from TMDB
+                            streaming_html = ""
+                            title = movie_details.get('title')
+                            year = movie_details.get('year')
+                            tmdb_id = movie_details.get('tmdb_id')
+
+                            # Debug info
+                            if st.session_state.get('debug_mode', False):
+                                st.info(f"🔍 Debug - Movie: {title}")
+                                st.write(f"   - Title: {title}")
+                                st.write(f"   - Year: {year}")
+                                st.write(f"   - TMDB ID: {tmdb_id}")
+                                st.write(f"   - TMDB API Key configured: {bool(tmdb_client.api_key)}")
+
+                            if tmdb_client.api_key and tmdb_id:
                                 streaming_info = tmdb_client.get_streaming_providers(tmdb_id)
-                                
+
                                 if st.session_state.get('debug_mode', False):
                                     st.write(f"   - Streaming info received: {bool(streaming_info)}")
                                     if streaming_info:
                                         st.json(streaming_info)
-                                
+
                                 if streaming_info:
                                     # Build streaming providers HTML
                                     providers_list = []
-                                    
+
                                     # Flatrate (subscription services)
                                     if streaming_info.get('flatrate'):
                                         for provider in streaming_info['flatrate']:
                                             providers_list.append(f"📺 {provider['provider_name']}")
-                                    
+
                                     # Rent
                                     if streaming_info.get('rent'):
                                         for provider in streaming_info['rent'][:3]:  # Limit to 3
                                             providers_list.append(f"🎬 {provider['provider_name']} (rent)")
-                                    
+
                                     # Buy
                                     if streaming_info.get('buy'):
                                         for provider in streaming_info['buy'][:3]:  # Limit to 3
                                             providers_list.append(f"🛒 {provider['provider_name']} (buy)")
-                                    
+
                                     if providers_list:
                                         # Add link to JustWatch if available
                                         watch_link = streaming_info.get('link', '')
@@ -827,30 +971,44 @@ def main():
                                             streaming_html = f"<p><strong>🎥 Where to Watch:</strong> {' • '.join(providers_list)} <br/><a href='{watch_link}' target='_blank' style='color: #2563EB; text-decoration: none;'>→ View all options</a></p>"
                                         else:
                                             streaming_html = f"<p><strong>🎥 Where to Watch:</strong> {' • '.join(providers_list)}</p>"
-                        elif not tmdb_client.api_key:
-                            if st.session_state.get('debug_mode', False):
-                                st.warning("⚠️ TMDB API key not configured")
-                        
-                        # Display enhanced recommendation with details and streaming
-                        st.markdown(f"""
-                        <div class="recommendation">
-                            <h3>{i}. {movie_details.get('title', movie)} ({movie_details.get('year', '')})</h3>
-                            <p><strong>Synopsis:</strong> {movie_details.get('plot', 'Plot not available')}</p>
-                            <p><strong>Cast:</strong> {movie_details.get('actors', 'Cast not available')}</p>
-                            <p><strong>Runtime:</strong> {movie_details.get('runtime', 'Runtime not available')}</p>
-                            <p><strong>Genre:</strong> {movie_details.get('genre', 'Genre not available')}</p>
-                            <p><strong>IMDB Rating:</strong> {movie_details.get('imdb_rating', 'Rating not available')}</p>
-                            {streaming_html}
-                        </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        # Fallback to basic display if OMDB details unavailable
-                        st.markdown(f"""
-                        <div class="recommendation">
-                            <h3>{i}. {movie}</h3>
-                            <p><em>Additional details unavailable - OMDB MCP server may not be running</em></p>
-                        </div>
-                        """, unsafe_allow_html=True)
+                            elif not tmdb_client.api_key:
+                                if st.session_state.get('debug_mode', False):
+                                    st.warning("⚠️ TMDB API key not configured")
+
+                            # Display enhanced recommendation with details and streaming
+                            st.markdown(f"""
+                            <div class="recommendation">
+                                <h3>{i}. {movie_details.get('title', movie)} ({movie_details.get('year', '')})</h3>
+                                <p><strong>Synopsis:</strong> {movie_details.get('plot', 'Plot not available')}</p>
+                                <p><strong>Cast:</strong> {movie_details.get('actors', 'Cast not available')}</p>
+                                <p><strong>Runtime:</strong> {movie_details.get('runtime', 'Runtime not available')}</p>
+                                <p><strong>Genre:</strong> {movie_details.get('genre', 'Genre not available')}</p>
+                                <p><strong>TMDB Rating:</strong> {movie_details.get('imdb_rating', 'Rating not available')}</p>
+                                {streaming_html}
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                            # Add "Viewed" checkbox positioned inside the recommendation div
+                            col1, col2, col3 = st.columns([1, 1, 1])
+                            with col3:
+                                if st.checkbox("Viewed", key=f"viewed_{movie}",
+                                             help="Check if you've already seen this movie to get a new recommendation"):
+                                    mark_movie_as_viewed(movie)
+                        else:
+                            # Fallback to basic display if TMDB details unavailable
+                            st.markdown(f"""
+                            <div class="recommendation">
+                                <h3>{i}. {movie}</h3>
+                                <p><em>Additional details unavailable - TMDB API may not be configured</em></p>
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                            # Add "Viewed" checkbox positioned inside the recommendation div
+                            col1, col2, col3 = st.columns([1, 1, 1])
+                            with col3:
+                                if st.checkbox("Viewed", key=f"viewed_{movie}",
+                                             help="Check if you've already seen this movie to get a new recommendation"):
+                                    mark_movie_as_viewed(movie)
             else:
                 st.error("Couldn't generate recommendations. Please try again with different movies.")
     
@@ -867,7 +1025,7 @@ def main():
             <strong>🎬 Honey, I love You But I Can't Watch That</strong>
         </p>
         <p style="font-size: 0.8rem; margin-bottom: 0.5rem;">
-            Powered by OpenAI/DeepSeek & OMDB MCP & TMDB API
+            Powered by OpenAI/DeepSeek & TMDB API
         </p>
         <p style="font-size: 0.9rem; color: #888;">
              &copy; Made with ❤️ for movie lovers by LikeSugarAI 2025
