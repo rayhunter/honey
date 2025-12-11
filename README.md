@@ -1,6 +1,7 @@
 # Honey, I Love You But I Can't Watch That 🎬
 
 A movie recommendation app for couples who have different tastes in films.
+A challenge for most pairs of humans.
 
 ## About
 
