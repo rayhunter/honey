@@ -36,8 +36,11 @@ def init_ai_client():
         # DeepSeek configuration
         api_key = os.getenv("DEEPSEEK_API_KEY")
         if not api_key:
-            api_key = st.secrets.get("DEEPSEEK_API_KEY", "")
-        
+            try:
+                api_key = st.secrets.get("DEEPSEEK_API_KEY", "")
+            except:
+                api_key = ""
+
         if api_key:
             st.sidebar.success(f"✅ DeepSeek API Key loaded: {api_key[:10]}...")
             return OpenAI(
@@ -51,8 +54,11 @@ def init_ai_client():
         # OpenAI configuration
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
-            api_key = st.secrets.get("OPENAI_API_KEY", "")
-        
+            try:
+                api_key = st.secrets.get("OPENAI_API_KEY", "")
+            except:
+                api_key = ""
+
         if api_key:
             st.sidebar.success(f"✅ OpenAI API Key loaded: {api_key[:10]}...")
             return OpenAI(api_key=api_key)
@@ -67,8 +73,14 @@ def init_openai():
 # TMDB client for streaming availability
 class TMDBClient:
     def __init__(self, api_key: str = None):
-        self.api_key = api_key or os.getenv("TMDB_API_KEY") or st.secrets.get("TMDB_API_KEY", "")
-        
+        tmdb_secret = ""
+        try:
+            tmdb_secret = st.secrets.get("TMDB_API_KEY", "")
+        except:
+            tmdb_secret = ""
+
+        self.api_key = api_key or os.getenv("TMDB_API_KEY") or tmdb_secret
+
         # Debug: Show TMDB API key status
         if self.api_key:
             st.sidebar.success(f"✅ TMDB API Key loaded: {self.api_key[:10]}...")
@@ -699,6 +711,33 @@ def main():
                             max-width: 100% !important;
                         }
                     }
+                    /* Style the download button - more specific selectors */
+                    div.stDownloadButton > button[kind="secondary"],
+                    div.stDownloadButton > button[kind="primary"],
+                    div.stDownloadButton > button {
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+                        color: white !important;
+                        border: none !important;
+                        border-radius: 12px !important;
+                        padding: 0.6rem 1.5rem !important;
+                        font-weight: 600 !important;
+                        transition: all 0.3s ease !important;
+                        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4) !important;
+                     }
+    
+                    div.stDownloadButton > button[kind="secondary"]:hover,
+                    div.stDownloadButton > button[kind="primary"]:hover,
+                    div.stDownloadButton > button:hover {
+                        background: linear-gradient(135deg, #5568d3 0%, #6a3f91 100%) !important;
+                        transform: translateY(-2px) !important;
+                        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6) !important;
+                    }
+    
+                    div.stDownloadButton > button[kind="secondary"]:active,
+                    div.stDownloadButton > button[kind="primary"]:active,
+                    div.stDownloadButton > button:active {
+                        transform: translateY(0px) !important;
+                    }
                 </style>
                 """, unsafe_allow_html=True)
                 
@@ -765,13 +804,13 @@ def main():
                         
                         # Create download button with cute styling
                         st.download_button(
-                            label="📄 Download PDF",
+                            label="📥 Download Recommendations",
                             data=pdf_bytes,
                             file_name="movie_recommendations.pdf",
                             mime="application/pdf",
                             help="Download your movie recommendations as a PDF",
                             use_container_width=True,
-                            type="secondary"
+                            type="primary"
                         )
             
             # Check if we have stored recommendations from a previous run
