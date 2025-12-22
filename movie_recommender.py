@@ -4,6 +4,8 @@ import os
 import requests
 import json
 import re
+import html
+import time
 from typing import List, Dict, Optional
 from dotenv import load_dotenv
 from reportlab.lib.pagesizes import letter
@@ -12,9 +14,305 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib import colors
 from io import BytesIO
+from datetime import datetime, timedelta
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Security: HTML sanitization to prevent XSS attacks
+def sanitize_html(text: str) -> str:
+    """
+    Sanitize user input to prevent XSS attacks.
+    Escapes HTML entities and removes potentially dangerous characters.
+    """
+    if not text:
+        return ""
+    # Escape HTML entities
+    sanitized = html.escape(str(text))
+    return sanitized
+
+def sanitize_dict(data: dict) -> dict:
+    """
+    Recursively sanitize all string values in a dictionary.
+    """
+    if not isinstance(data, dict):
+        return data
+    
+    sanitized = {}
+    for key, value in data.items():
+        if isinstance(value, str):
+            sanitized[key] = sanitize_html(value)
+        elif isinstance(value, dict):
+            sanitized[key] = sanitize_dict(value)
+        elif isinstance(value, list):
+            sanitized[key] = [sanitize_html(item) if isinstance(item, str) else item for item in value]
+        else:
+            sanitized[key] = value
+    return sanitized
+
+# Security: Input validation
+def validate_movie_title(title: str, max_length: int = 200) -> tuple[bool, str]:
+    """
+    Validate movie title input.
+    Returns (is_valid, error_message)
+    """
+    if not title or not title.strip():
+        return True, ""  # Empty is ok, will be filtered out
+    
+    # Check length
+    if len(title) > max_length:
+        return False, f"Movie title too long (max {max_length} characters)"
+    
+    # Check for suspicious patterns that could indicate injection attacks
+    suspicious_patterns = [
+        '<script', '</script>', 'javascript:', 'onerror=', 'onclick=',
+        'onload=', '<iframe', '<object', '<embed', 'data:text/html'
+    ]
+    
+    title_lower = title.lower()
+    for pattern in suspicious_patterns:
+        if pattern in title_lower:
+            return False, "Invalid characters in movie title"
+    
+    # Validate characters (allow letters, numbers, spaces, and common punctuation)
+    # Allow unicode characters for international movie titles
+    allowed_pattern = re.compile(r'^[\w\s\-\.\,\'\:\!\?\&\(\)]+$', re.UNICODE)
+    if not allowed_pattern.match(title):
+        return False, "Movie title contains invalid characters"
+    
+    return True, ""
+
+def validate_all_inputs(partner1_movies: List[str], partner2_movies: List[str]) -> tuple[bool, str]:
+    """
+    Validate all user inputs.
+    Returns (is_valid, error_message)
+    """
+    # Validate partner 1 movies
+    for i, movie in enumerate(partner1_movies, 1):
+        if movie:  # Only validate non-empty entries
+            is_valid, error = validate_movie_title(movie)
+            if not is_valid:
+                return False, f"Partner 1, Movie {i}: {error}"
+    
+    # Validate partner 2 movies
+    for i, movie in enumerate(partner2_movies, 1):
+        if movie:  # Only validate non-empty entries
+            is_valid, error = validate_movie_title(movie)
+            if not is_valid:
+                return False, f"Partner 2, Movie {i}: {error}"
+    
+    # Check minimum number of movies
+    p1_count = len([m for m in partner1_movies if m])
+    p2_count = len([m for m in partner2_movies if m])
+    
+    if p1_count < 1:
+        return False, "Partner 1 must enter at least 1 movie"
+    if p2_count < 1:
+        return False, "Partner 2 must enter at least 1 movie"
+    
+    return True, ""
+
+# Security: Prompt injection protection
+def sanitize_for_llm(text: str) -> str:
+    """
+    Sanitize user input before sending to LLM to prevent prompt injection.
+    Removes or escapes characters that could be used to manipulate prompts.
+    """
+    if not text:
+        return ""
+    
+    # Remove common prompt injection patterns
+    dangerous_patterns = [
+        'ignore previous', 'ignore all previous', 'disregard',
+        'system:', 'assistant:', 'user:', '###', '---',
+        'forget everything', 'new instructions', 'override',
+        'you are now', 'act as', 'pretend', 'roleplay'
+    ]
+    
+    text_lower = text.lower()
+    for pattern in dangerous_patterns:
+        if pattern in text_lower:
+            # Replace with safe equivalent
+            text = text.replace(pattern, pattern.replace(' ', '_'))
+            text = text.replace(pattern.capitalize(), pattern.replace(' ', '_'))
+    
+    # Limit length to prevent token flooding
+    max_length = 200
+    if len(text) > max_length:
+        text = text[:max_length]
+    
+    # Remove newlines and excessive whitespace that could break prompts
+    text = ' '.join(text.split())
+    
+    return text.strip()
+
+def sanitize_movie_list(movies: List[str]) -> List[str]:
+    """
+    Sanitize a list of movie titles for safe LLM prompting.
+    """
+    return [sanitize_for_llm(movie) for movie in movies if movie]
+
+# Security: Rate limiting
+class RateLimiter:
+    """
+    Simple rate limiter to prevent API abuse.
+    Limits number of requests per time window.
+    """
+    def __init__(self, max_requests: int = 10, time_window: int = 60):
+        """
+        Args:
+            max_requests: Maximum number of requests allowed in time window
+            time_window: Time window in seconds (default 60 = 1 minute)
+        """
+        self.max_requests = max_requests
+        self.time_window = time_window
+        
+    def check_rate_limit(self, session_key: str = 'rate_limit_data') -> tuple[bool, str]:
+        """
+        Check if rate limit has been exceeded.
+        Returns (is_allowed, error_message)
+        """
+        # Initialize rate limit data in session state
+        if session_key not in st.session_state:
+            st.session_state[session_key] = {
+                'requests': [],
+                'blocked_until': None
+            }
+        
+        rate_data = st.session_state[session_key]
+        current_time = datetime.now()
+        
+        # Check if currently blocked
+        if rate_data['blocked_until']:
+            if current_time < rate_data['blocked_until']:
+                remaining = (rate_data['blocked_until'] - current_time).seconds
+                return False, f"⏳ Rate limit exceeded. Please wait {remaining} seconds before trying again."
+            else:
+                # Unblock and clear
+                rate_data['blocked_until'] = None
+                rate_data['requests'] = []
+        
+        # Remove requests outside time window
+        cutoff_time = current_time - timedelta(seconds=self.time_window)
+        rate_data['requests'] = [
+            req_time for req_time in rate_data['requests'] 
+            if req_time > cutoff_time
+        ]
+        
+        # Check if limit exceeded
+        if len(rate_data['requests']) >= self.max_requests:
+            # Block for 5 minutes
+            rate_data['blocked_until'] = current_time + timedelta(minutes=5)
+            return False, f"⚠️ Too many requests! Maximum {self.max_requests} requests per {self.time_window} seconds. Blocked for 5 minutes."
+        
+        # Add current request
+        rate_data['requests'].append(current_time)
+        st.session_state[session_key] = rate_data
+        
+        return True, ""
+
+# Global rate limiter instance
+rate_limiter = RateLimiter(max_requests=5, time_window=60)  # 5 requests per minute
+
+# Security: Simple authentication
+def check_authentication() -> bool:
+    """
+    Check if user is authenticated.
+    Returns True if authenticated, False otherwise.
+    Uses environment variable or Streamlit secrets for password.
+    """
+    # Get password from environment or secrets
+    app_password = os.getenv("APP_PASSWORD")
+    if not app_password:
+        try:
+            app_password = st.secrets.get("APP_PASSWORD", "")
+        except:
+            app_password = ""
+    
+    # If no password is set, skip authentication (for development)
+    if not app_password:
+        return True
+    
+    # Check if already authenticated
+    if st.session_state.get('authenticated', False):
+        return True
+    
+    # Show login form
+    st.markdown("## 🔐 Authentication Required")
+    st.info("Please enter the password to access this application.")
+    
+    with st.form("login_form"):
+        password_input = st.text_input("Password", type="password")
+        submit_button = st.form_submit_button("Login")
+        
+        if submit_button:
+            if password_input == app_password:
+                st.session_state.authenticated = True
+                st.success("✅ Authentication successful!")
+                st.rerun()
+            else:
+                st.error("❌ Incorrect password. Please try again.")
+                # Add delay to prevent brute force
+                time.sleep(2)
+    
+    return False
+
+def add_logout_button():
+    """Add logout button to sidebar if authenticated."""
+    if st.session_state.get('authenticated', False):
+        if st.sidebar.button("🚪 Logout"):
+            st.session_state.authenticated = False
+            st.rerun()
+
+# Security: Error message sanitization
+def sanitize_error_message(error: Exception) -> str:
+    """
+    Sanitize error messages to prevent information disclosure.
+    Removes sensitive paths, keys, and internal details.
+    """
+    error_str = str(error)
+    
+    # Remove file paths
+    error_str = re.sub(r'[A-Za-z]:\\[^\s]+', '[PATH]', error_str)  # Windows paths
+    error_str = re.sub(r'/[^\s]+', '[PATH]', error_str)  # Unix paths
+    
+    # Remove potential API keys or tokens
+    error_str = re.sub(r'[A-Za-z0-9]{20,}', '[REDACTED]', error_str)
+    
+    # Remove IP addresses
+    error_str = re.sub(r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', '[IP]', error_str)
+    
+    # Truncate very long errors
+    if len(error_str) > 200:
+        error_str = error_str[:200] + "..."
+    
+    return error_str
+
+def get_user_friendly_error(error: Exception, context: str = "") -> str:
+    """
+    Get a user-friendly error message based on the error type.
+    """
+    error_type = type(error).__name__
+    
+    # Map common errors to user-friendly messages
+    friendly_messages = {
+        'ConnectionError': 'Unable to connect to the service. Please check your internet connection.',
+        'Timeout': 'Request timed out. Please try again.',
+        'HTTPError': 'Service temporarily unavailable. Please try again later.',
+        'JSONDecodeError': 'Received invalid response from service.',
+        'KeyError': 'Missing expected data in response.',
+        'ValueError': 'Invalid data format.',
+        'APIError': 'API service error. Please try again later.',
+    }
+    
+    base_message = friendly_messages.get(error_type, f'{context} error occurred.')
+    
+    # In debug mode, add sanitized error details
+    if st.session_state.get('debug_mode', False):
+        sanitized = sanitize_error_message(error)
+        return f"{base_message}\n\nDebug info: {sanitized}"
+    
+    return base_message
 
 # Load CSS
 def load_css():
@@ -42,7 +340,7 @@ def init_ai_client():
                 api_key = ""
 
         if api_key:
-            st.sidebar.success(f"✅ DeepSeek API Key loaded: {api_key[:10]}...")
+            st.sidebar.success("✅ DeepSeek API configured")
             return OpenAI(
                 api_key=api_key,
                 base_url="https://api.deepseek.com/v1"
@@ -60,7 +358,7 @@ def init_ai_client():
                 api_key = ""
 
         if api_key:
-            st.sidebar.success(f"✅ OpenAI API Key loaded: {api_key[:10]}...")
+            st.sidebar.success("✅ OpenAI API configured")
             return OpenAI(api_key=api_key)
         else:
             st.sidebar.error("❌ OpenAI API Key not found!")
@@ -81,9 +379,9 @@ class TMDBClient:
 
         self.api_key = api_key or os.getenv("TMDB_API_KEY") or tmdb_secret
 
-        # Debug: Show TMDB API key status
+        # Show TMDB API key status (without exposing key)
         if self.api_key:
-            st.sidebar.success(f"✅ TMDB API Key loaded: {self.api_key[:10]}...")
+            st.sidebar.success("✅ TMDB API configured")
         else:
             st.sidebar.warning("⚠️ TMDB API Key not found!")
         self.base_url = "https://api.themoviedb.org/3"
@@ -100,7 +398,8 @@ class TMDBClient:
                     "api_key": self.api_key,
                     "external_source": "imdb_id"
                 },
-                timeout=10
+                timeout=10,
+                verify=True  # SSL verification
             )
             response.raise_for_status()
             data = response.json()
@@ -110,7 +409,7 @@ class TMDBClient:
             return None
         except Exception as e:
             if st.session_state.get('debug_mode', False):
-                st.warning(f"TMDB lookup error: {e}")
+                st.warning(get_user_friendly_error(e, "TMDB lookup"))
             return None
     
     def find_movie_by_title(self, title: str, year: Optional[str] = None) -> Optional[int]:
@@ -132,7 +431,8 @@ class TMDBClient:
             response = requests.get(
                 f"{self.base_url}/search/movie",
                 params=params,
-                timeout=10
+                timeout=10,
+                verify=True  # SSL verification
             )
             response.raise_for_status()
             data = response.json()
@@ -146,7 +446,7 @@ class TMDBClient:
             return None
         except Exception as e:
             if st.session_state.get('debug_mode', False):
-                st.warning(f"TMDB search error: {e}")
+                st.warning(get_user_friendly_error(e, "TMDB search"))
             return None
     
     def get_streaming_providers(self, tmdb_id: int, country: str = "US") -> Optional[Dict]:
@@ -158,7 +458,8 @@ class TMDBClient:
             response = requests.get(
                 f"{self.base_url}/movie/{tmdb_id}/watch/providers",
                 params={"api_key": self.api_key},
-                timeout=10
+                timeout=10,
+                verify=True  # SSL verification
             )
             response.raise_for_status()
             data = response.json()
@@ -167,7 +468,7 @@ class TMDBClient:
             return data.get("results", {}).get(country, {})
         except Exception as e:
             if st.session_state.get('debug_mode', False):
-                st.warning(f"TMDB streaming info error: {e}")
+                st.warning(get_user_friendly_error(e, "TMDB streaming info"))
             return None
 
     def get_movie_details(self, title: str, year: Optional[str] = None) -> Optional[Dict]:
@@ -188,7 +489,8 @@ class TMDBClient:
                     "api_key": self.api_key,
                     "append_to_response": "credits"  # Include cast and crew
                 },
-                timeout=10
+                timeout=10,
+                verify=True  # SSL verification
             )
             response.raise_for_status()
             data = response.json()
@@ -234,7 +536,7 @@ class TMDBClient:
 
         except Exception as e:
             if st.session_state.get('debug_mode', False):
-                st.warning(f"TMDB movie details error: {e}")
+                st.warning(get_user_friendly_error(e, "TMDB movie details"))
             return None
 
 # Analyze movie preferences and get recommendations
@@ -251,14 +553,18 @@ def get_movie_recommendations(partner1_movies: List[str], partner2_movies: List[
     # Select model based on user choice
     model_name = "deepseek-chat" if st.session_state.use_deepseek else "gpt-4o-mini"
     
-    system_message = "You are a knowledgeable film critic who can identify cinematic commonalities between different movie preferences."
+    # Sanitize movie titles to prevent prompt injection
+    safe_partner1 = sanitize_movie_list(partner1_movies)
+    safe_partner2 = sanitize_movie_list(partner2_movies)
+    
+    system_message = "You are a knowledgeable film critic who can identify cinematic commonalities between different movie preferences. Only respond with movie recommendations."
     user_message = f"""
     Analyze these two lists of favorite movies from partners in a relationship and identify 7 new movie recommendations 
     that would appeal to both based on common themes, genres, directors, or styles. 
     Return only the movie titles in a numbered list, nothing else.
     
-    Partner 1's favorite movies: {", ".join(partner1_movies)}
-    Partner 2's favorite movies: {", ".join(partner2_movies)}
+    Partner 1's favorite movies: {", ".join(safe_partner1)}
+    Partner 2's favorite movies: {", ".join(safe_partner2)}
     
     Recommendations:
     1. 
@@ -299,14 +605,17 @@ def analyze_movie_selections(movies: List[str], partner_num: int, client=None) -
     # Select model based on user choice
     model_name = "deepseek-chat" if st.session_state.use_deepseek else "gpt-4o-mini"
     
-    system_message = "You are a knowledgeable film critic who can provide concise analysis of movie preferences."
+    # Sanitize movie titles to prevent prompt injection
+    safe_movies = sanitize_movie_list(movies)
+    
+    system_message = "You are a knowledgeable film critic who can provide concise analysis of movie preferences. Only respond with movie analysis."
     user_message = f"""
     Analyze this list of favorite movies and provide a very brief analysis (2-3 sentences) focusing on:
     1. Common themes or genres
     2. Notable directors or actors
     3. Overall taste profile
     
-    Movies: {", ".join(movies)}
+    Movies: {", ".join(safe_movies)}
     
     Provide the analysis in a concise format.
     """
@@ -349,6 +658,8 @@ def init_session_state():
         st.session_state.viewed_movies = set()
     if 'all_recommendations' not in st.session_state:
         st.session_state.all_recommendations = []
+    if 'authenticated' not in st.session_state:
+        st.session_state.authenticated = False
     if 'current_displayed' not in st.session_state:
         st.session_state.current_displayed = []
 
@@ -596,6 +907,13 @@ def main():
     # Apply optimized styling
     setup_app_optimized()
     
+    # Check authentication first
+    if not check_authentication():
+        st.stop()
+    
+    # Add logout button to sidebar if authenticated
+    add_logout_button()
+    
     st.markdown('<h1 class="title">Honey, I Love You But I Can\'t Watch That</h1>', unsafe_allow_html=True)
     st.markdown('<p class="subheader">Movie Recommendations for Couples</p>', unsafe_allow_html=True)
     
@@ -640,7 +958,7 @@ def main():
         st.markdown('<div class="column-card column-card-1"><h3>🎭 Movie Lover 1\'s Favorites</h3>', unsafe_allow_html=True)
         # st.subheader("🎭 Movie Lover 1's Favorites")
         partner1_movies = [
-            st.text_input(f"Movie {i+1}", key=f"p1_{i}", placeholder="Enter a movie title").strip()
+            st.text_input(f"Movie {i+1}", key=f"p1_{i}", placeholder="Enter a movie title", max_chars=200).strip()
             for i in range(5)
         ]
         st.markdown('</div>', unsafe_allow_html=True)
@@ -649,7 +967,7 @@ def main():
         st.markdown('<div class="column-card column-card-2"><h3>🎬 Movie Lover 2\'s Favorites</h3>', unsafe_allow_html=True)
         # st.subheader("🎬 Movie Lover 2's Favorites")
         partner2_movies = [
-            st.text_input(f"Movie {i+1}", key=f"p2_{i}", placeholder="Enter a movie title").strip()
+            st.text_input(f"Movie {i+1}", key=f"p2_{i}", placeholder="Enter a movie title", max_chars=200).strip()
             for i in range(5)
         ]
         st.markdown('</div>', unsafe_allow_html=True)
@@ -661,9 +979,22 @@ def main():
     
     
     if find_button:
+        # Check rate limit first
+        is_allowed, rate_error = rate_limiter.check_rate_limit()
+        if not is_allowed:
+            st.error(rate_error)
+            st.info("💡 Tip: This limit prevents abuse and keeps API costs reasonable. Try again in a moment!")
+            st.stop()
+        
         # Filter out empty entries
         partner1_filtered = [m for m in partner1_movies if m]
         partner2_filtered = [m for m in partner2_movies if m]
+        
+        # Validate all inputs before processing
+        is_valid, error_message = validate_all_inputs(partner1_filtered, partner2_filtered)
+        if not is_valid:
+            st.error(f"❌ Invalid input: {error_message}")
+            st.stop()
         
         if len(partner1_filtered) < 3 or len(partner2_filtered) < 3:
             st.warning("Please enter at least 3 movies for each partner for better recommendations!")
@@ -744,7 +1075,10 @@ def main():
                 # Display analysis in responsive columns
                 cols = st.columns(2)
                 
-                for idx, (col, data) in enumerate(zip(cols, movie_data)):
+                # Sanitize movie_data to prevent XSS
+                sanitized_movie_data = [sanitize_dict(data) if data else {} for data in movie_data]
+                
+                for idx, (col, data) in enumerate(zip(cols, sanitized_movie_data)):
                     with col:
                         with st.container(border=True):
                             # Check if data has required keys
@@ -752,7 +1086,7 @@ def main():
                                 st.error(f"Error loading analysis for partner {idx + 1}")
                                 continue
                                 
-                            # Custom colored header
+                            # Custom colored header (background is safe CSS, not user input)
                             st.markdown(f"""
                             <div style="background: {data.get('background', 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)')}
                                         padding: 15px; border-radius: 8px; margin-bottom: 15px; 
@@ -825,6 +1159,10 @@ def main():
                     for i, movie in enumerate(displayed_recommendations, 1):
                         # Get enhanced details from TMDB
                         movie_details = tmdb_client.get_movie_details(movie)
+                        
+                        # Sanitize movie details to prevent XSS
+                        if movie_details:
+                            movie_details = sanitize_dict(movie_details)
 
                         if movie_details:
                             # Get streaming availability from TMDB
@@ -850,29 +1188,34 @@ def main():
                                         st.json(streaming_info)
 
                                 if streaming_info:
-                                    # Build streaming providers HTML
+                                    # Build streaming providers HTML (with sanitization)
                                     providers_list = []
 
                                     # Flatrate (subscription services)
                                     if streaming_info.get('flatrate'):
                                         for provider in streaming_info['flatrate']:
-                                            providers_list.append(f"📺 {provider['provider_name']}")
+                                            safe_name = sanitize_html(provider.get('provider_name', ''))
+                                            providers_list.append(f"📺 {safe_name}")
 
                                     # Rent
                                     if streaming_info.get('rent'):
                                         for provider in streaming_info['rent'][:3]:  # Limit to 3
-                                            providers_list.append(f"🎬 {provider['provider_name']} (rent)")
+                                            safe_name = sanitize_html(provider.get('provider_name', ''))
+                                            providers_list.append(f"🎬 {safe_name} (rent)")
 
                                     # Buy
                                     if streaming_info.get('buy'):
                                         for provider in streaming_info['buy'][:3]:  # Limit to 3
-                                            providers_list.append(f"🛒 {provider['provider_name']} (buy)")
+                                            safe_name = sanitize_html(provider.get('provider_name', ''))
+                                            providers_list.append(f"🛒 {safe_name} (buy)")
 
                                     if providers_list:
-                                        # Add link to JustWatch if available
+                                        # Add link to JustWatch if available (sanitize URL)
                                         watch_link = streaming_info.get('link', '')
-                                        if watch_link:
-                                            streaming_html = f"<p><strong>🎥 Where to Watch:</strong> {' • '.join(providers_list)} <br/><a href='{watch_link}' target='_blank' style='color: #2563EB; text-decoration: none;'>→ View all options</a></p>"
+                                        # Validate URL to prevent javascript: or data: URLs
+                                        if watch_link and (watch_link.startswith('http://') or watch_link.startswith('https://')):
+                                            safe_link = sanitize_html(watch_link)
+                                            streaming_html = f"<p><strong>🎥 Where to Watch:</strong> {' • '.join(providers_list)} <br/><a href='{safe_link}' target='_blank' rel='noopener noreferrer' style='color: #2563EB; text-decoration: none;'>→ View all options</a></p>"
                                         else:
                                             streaming_html = f"<p><strong>🎥 Where to Watch:</strong> {' • '.join(providers_list)}</p>"
                             elif not tmdb_client.api_key:

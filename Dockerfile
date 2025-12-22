@@ -2,9 +2,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including SSL certificates
 RUN apt-get update && apt-get install -y \
     curl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
@@ -17,8 +18,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY movie_recommender.py .
 COPY style/ style/
 
-# Create .streamlit directory for any runtime configs
+# Create .streamlit directory and copy config
 RUN mkdir -p .streamlit
+COPY .streamlit/config.toml .streamlit/config.toml
 
 # Expose port for Railway
 EXPOSE 8501
