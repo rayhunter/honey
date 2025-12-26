@@ -651,9 +651,9 @@ def analyze_movie_selections(movies: List[str], partner_num: int, client=None) -
 # Initialize session state for styling toggle and model selection
 def init_session_state():
     if 'enable_styling' not in st.session_state:
-        st.session_state.enable_styling = True
+        st.session_state.enable_styling = False  # Default to Plain styling
     if 'use_deepseek' not in st.session_state:
-        st.session_state.use_deepseek = False
+        st.session_state.use_deepseek = True  # Default to DeepSeek model
     if 'error_shown' not in st.session_state:
         st.session_state.error_shown = False
     if 'viewed_movies' not in st.session_state:
@@ -932,9 +932,10 @@ def main():
             st.rerun()
     with col2:
         use_deepseek = st.toggle(
-            "🤖 Model: OpenAI or DeepSeek", 
-            value=st.session_state.use_deepseek, 
-            help="Toggle between OpenAI (off) and DeepSeek (on) models"
+            "🤖 Model: OpenAI or DeepSeek",
+            value=st.session_state.use_deepseek,
+            help="Using DeepSeek model (OpenAI option disabled)",
+            disabled=True  # OpenAI option disabled
         )
         if use_deepseek != st.session_state.use_deepseek:
             st.session_state.use_deepseek = use_deepseek
@@ -948,8 +949,8 @@ def main():
     # Introduction
     st.markdown("""
     <div class="content-card">
-        <h3>Can't decide on a movie to watch together? Enter each partner's favorite movies below.
-        We'll analyze your tastes and recommend films you'll both enjoy!</h3>
+        <h4>Can't decide on a movie to watch together? Enter each partner's favorite movies (at least 3) below.
+        We'll analyze your tastes and recommend films you'll both enjoy!</h4>
     </div>
     """, unsafe_allow_html=True)
     
