@@ -18,9 +18,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY movie_recommender.py .
 COPY style/ style/
 
-# Create .streamlit directory and copy config
+# Create .streamlit directory
 RUN mkdir -p .streamlit
-COPY .streamlit/config.toml .streamlit/config.toml
+
+# Note: .streamlit/config.toml is optional - Railway works with environment variables
+# If you want custom Streamlit config, add .streamlit/config.toml to your repo
 
 # Expose port for Railway
 EXPOSE 8501
