@@ -221,13 +221,8 @@ def check_authentication() -> bool:
     Returns True if authenticated, False otherwise.
     Uses environment variable or Streamlit secrets for password.
     """
-    # Get password from environment or secrets
-    app_password = os.getenv("APP_PASSWORD")
-    if not app_password:
-        try:
-            app_password = st.secrets.get("APP_PASSWORD", "")
-        except:
-            app_password = ""
+    # Get password from environment or secrets - use safe helper for Railway
+    app_password = safe_get_secret("APP_PASSWORD")
     
     # If no password is set, skip authentication (for development)
     if not app_password:
@@ -314,6 +309,27 @@ def get_user_friendly_error(error: Exception, context: str = "") -> str:
     
     return base_message
 
+# Helper function to safely get secrets (Railway compatibility)
+def safe_get_secret(key: str, default: str = "") -> str:
+    """
+    Safely get a secret from Streamlit secrets or environment variables.
+    Works on Railway (which uses env vars) and local (which may use secrets.toml).
+    """
+    # Try environment variable first (Railway, Render, etc.)
+    env_value = os.getenv(key)
+    if env_value:
+        return env_value
+    
+    # Try Streamlit secrets (local development)
+    try:
+        return st.secrets.get(key, default)
+    except (KeyError, FileNotFoundError, AttributeError):
+        # secrets.toml doesn't exist or key not found
+        return default
+    except Exception:
+        # Catch any other unexpected errors
+        return default
+
 # Load CSS
 def load_css():
     with open("style/tailwind_glassmorphism.css", "r") as f:
@@ -331,13 +347,8 @@ def setup_app():
 # Initialize AI client (OpenAI or DeepSeek)
 def init_ai_client():
     if st.session_state.use_deepseek:
-        # DeepSeek configuration
-        api_key = os.getenv("DEEPSEEK_API_KEY")
-        if not api_key:
-            try:
-                api_key = st.secrets.get("DEEPSEEK_API_KEY", "")
-            except:
-                api_key = ""
+        # DeepSeek configuration - use safe helper for Railway compatibility
+        api_key = safe_get_secret("DEEPSEEK_API_KEY")
 
         if api_key:
             st.sidebar.success("✅ DeepSeek API configured")
@@ -349,13 +360,8 @@ def init_ai_client():
             st.sidebar.error("❌ DeepSeek API Key not found!")
             return None
     else:
-        # OpenAI configuration
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            try:
-                api_key = st.secrets.get("OPENAI_API_KEY", "")
-            except:
-                api_key = ""
+        # OpenAI configuration - use safe helper for Railway compatibility
+        api_key = safe_get_secret("OPENAI_API_KEY")
 
         if api_key:
             st.sidebar.success("✅ OpenAI API configured")
@@ -371,13 +377,9 @@ def init_openai():
 # TMDB client for streaming availability
 class TMDBClient:
     def __init__(self, api_key: str = None):
-        tmdb_secret = ""
-        try:
-            tmdb_secret = st.secrets.get("TMDB_API_KEY", "")
-        except:
-            tmdb_secret = ""
-
-        self.api_key = api_key or os.getenv("TMDB_API_KEY") or tmdb_secret
+        # Use safe helper for Railway compatibility
+        tmdb_secret = safe_get_secret("TMDB_API_KEY")
+        self.api_key = api_key or tmdb_secret
 
         # Show TMDB API key status (without exposing key)
         if self.api_key:
