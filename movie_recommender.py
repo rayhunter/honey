@@ -340,7 +340,8 @@ def setup_app():
     st.set_page_config(
         page_title="Honey, I Love You But I Can't Watch That",
         page_icon="🎬",
-        layout="wide"
+        layout="wide",
+        initial_sidebar_state="collapsed"
     )
     load_css()
 
@@ -903,7 +904,8 @@ def main():
     st.set_page_config(
         page_title="Honey, I Love You But I Can't Watch That",
         page_icon="🎬",
-        layout="wide"
+        layout="wide",
+        initial_sidebar_state="collapsed"
     )
     
     # Apply optimized styling
